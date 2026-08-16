@@ -1,0 +1,41 @@
+[filters.hydra]
+description = "Keep hydra credential hits and the run summary, drop STATUS spam"
+match_command = "^hydra\\b.*\\s-[lLpPC]\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "^\\[\\d+\\]\\[",
+  "^\\[DATA\\] attacking",
+  "^\\d+ of \\d+ target",
+  "^\\[ERROR\\]",
+  "^\\[WARNING\\]",
+  "valid password found",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not connect",
+]
+max_lines = 80
+truncate_lines_at = 200
+on_empty = "hydra: no credential hits or errors matched the filter (see full output)"
+
+[[tests.hydra]]
+name = "keeps hit and summary, drops banner and STATUS lines"
+input = """
+Hydra v9.7 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-08-16 10:00:00
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 14344399 login tries
+[DATA] attacking ssh://127.0.0.1:22/
+[STATUS] 176.00 tries/min, 176 tries in 00:01h, 14344223 to do in 1358:00h, 16 active
+[22][ssh] host: 127.0.0.1   login: root   password: toor
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-08-16 10:01:00
+"""
+expected = "[DATA] attacking ssh://127.0.0.1:22/\n[22][ssh] host: 127.0.0.1   login: root   password: toor\n1 of 1 target successfully completed, 1 valid password found"
+
+[[tests.hydra]]
+name = "connection error is not swallowed"
+input = "Hydra v9.7 (c) 2023 by van Hauser/THC\n[ERROR] could not connect to ssh://127.0.0.1:22 - Connection refused"
+expected = "[ERROR] could not connect to ssh://127.0.0.1:22 - Connection refused"

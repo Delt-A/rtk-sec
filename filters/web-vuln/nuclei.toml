@@ -1,0 +1,45 @@
+[filters.nuclei]
+description = "Keep nuclei findings and fatal errors, drop INF/WRN startup noise"
+match_command = "^nuclei\\b.*\\s-(u|l|target|list)\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\] \\[(critical|high|medium|low|info|unknown)\\]",
+  "^\\[FTL\\]",
+  "^\\[ERR\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not (create|run|resolve|read)",
+  "(?i)no templates (provided|found)",
+]
+max_lines = 200
+truncate_lines_at = 240
+on_empty = "nuclei: no findings matched the filter (see full output)"
+
+[[tests.nuclei]]
+name = "keeps findings of every severity, drops INF/WRN startup block"
+input = """
+[INF] Current nuclei version: v3.8.0 (latest)
+[INF] Current nuclei-templates version: v10.2.9
+[INF] Templates loaded for current scan: 8123
+[WRN] Found 5 templates with runtime error
+[INF] Targets loaded for current scan: 1
+[INF] Templates clustered: 512 (Reduced 400 Requests)
+[tech-detect:nginx] [http] [info] http://127.0.0.1:8080
+[CVE-2021-41773] [http] [critical] http://127.0.0.1:8080/cgi-bin/.%2e/etc/passwd
+[INF] Using Interactsh Server: oast.pro
+"""
+expected = "[tech-detect:nginx] [http] [info] http://127.0.0.1:8080\n[CVE-2021-41773] [http] [critical] http://127.0.0.1:8080/cgi-bin/.%2e/etc/passwd"
+
+[[tests.nuclei]]
+name = "fatal error survives the keep filter"
+input = "[INF] Current nuclei version: v3.8.0 (latest)\n[FTL] Could not create runner: no templates provided for scan"
+expected = "[FTL] Could not create runner: no templates provided for scan"
+
+[[tests.nuclei]]
+name = "empty result reports that the filter matched nothing, not that nothing was found"
+input = "[INF] Current nuclei version: v3.8.0 (latest)\n[INF] Templates loaded for current scan: 8123"
+expected = "nuclei: no findings matched the filter (see full output)"

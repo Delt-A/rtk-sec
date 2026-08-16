@@ -1,0 +1,36 @@
+[filters.sslscan]
+description = "Drop rejected ciphers, keep accepted/preferred and vulnerability checks"
+match_command = "^sslscan\\b"
+strip_ansi = true
+filter_stderr = true
+# A typical run lists 200-400 "Rejected" ciphers against a dozen that matter.
+strip_lines_matching = [
+  "^\\s*$",
+  "^Rejected\\s+",
+  "^\\s*Version: ",
+  "^\\s*OpenSSL ",
+  "^\\s+_+$",
+]
+max_lines = 120
+truncate_lines_at = 160
+
+[[tests.sslscan]]
+name = "drops Rejected rows, keeps Preferred/Accepted and heartbleed verdict"
+input = """
+Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1
+
+  Heartbleed:
+TLS 1.2 not vulnerable to heartbleed
+
+  Supported Server Cipher(s):
+Preferred TLSv1.3  128 bits  TLS_AES_128_GCM_SHA256        Curve 25519 DHE 253
+Accepted  TLSv1.2  256 bits  ECDHE-RSA-AES256-GCM-SHA384   Curve 25519 DHE 253
+Rejected  TLSv1.2  128 bits  DHE-RSA-AES128-SHA
+Rejected  TLSv1.2  112 bits  ECDHE-RSA-DES-CBC3-SHA
+"""
+expected = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\n  Heartbleed:\nTLS 1.2 not vulnerable to heartbleed\n  Supported Server Cipher(s):\nPreferred TLSv1.3  128 bits  TLS_AES_128_GCM_SHA256        Curve 25519 DHE 253\nAccepted  TLSv1.2  256 bits  ECDHE-RSA-AES256-GCM-SHA384   Curve 25519 DHE 253"
+
+[[tests.sslscan]]
+name = "connection failure is not swallowed"
+input = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\nERROR: Could not open a connection to host 127.0.0.1 on port 443."
+expected = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\nERROR: Could not open a connection to host 127.0.0.1 on port 443."

@@ -1,0 +1,4 @@
+[*] Checking http://127.0.0.1:8080
+[+] Generic Detection results:
+[-] No WAF detected by the generic detection
+[~] Number of requests: 7

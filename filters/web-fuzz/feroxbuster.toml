@@ -1,0 +1,47 @@
+[filters.feroxbuster]
+description = "Keep feroxbuster result rows, drop box-drawing banner and progress bars"
+match_command = "^feroxbuster\\b.*\\s-(-url|u)\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "^\\s*\\d{3}\\s+[A-Z]{3,7}\\s+\\d+l\\s+\\d+w\\s+\\d+c\\s",
+  "^\\[!\\]",
+  "^ERROR",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not connect",
+  "(?i)wordlist.*(not found|could not)",
+]
+max_lines = 150
+truncate_lines_at = 200
+on_empty = "feroxbuster: no result rows matched the filter (see full output)"
+
+[[tests.feroxbuster]]
+name = "keeps result rows, drops banner block and blank lines"
+input = """
+ ___  ___  __   __     __      __         __   ___
+by Ben "epi" Risher                      ver: 2.13.1
+ Target Url            | http://127.0.0.1:8080/
+ Threads               | 50
+ Press [ENTER] to use the Scan Management Menu
+
+404      GET       13l       32w      335c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter
+
+200      GET        1l        2w       58c http://127.0.0.1:8080/
+
+301      GET        0l        0w        0c http://127.0.0.1:8080/admin => http://127.0.0.1:8080/admin/
+"""
+expected = "404      GET       13l       32w      335c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter\n200      GET        1l        2w       58c http://127.0.0.1:8080/\n301      GET        0l        0w        0c http://127.0.0.1:8080/admin => http://127.0.0.1:8080/admin/"
+
+[[tests.feroxbuster]]
+name = "connection error is not swallowed"
+input = " ___  ___  __   __\nby Ben \"epi\" Risher                      ver: 2.13.1\n\nERROR feroxbuster::heuristics could not connect to http://127.0.0.1:9999, skipping...\n"
+expected = "ERROR feroxbuster::heuristics could not connect to http://127.0.0.1:9999, skipping..."
+
+[[tests.feroxbuster]]
+name = "indicatif progress bar is collapsed away"
+input = "200      GET        1l        2w       58c http://127.0.0.1:8080/\n[####>---------------] - 1s     2000/4614  1s      found:2       errors:0\r[####################] - 2s     4614/4614  0s      found:9       errors:0"
+expected = "200      GET        1l        2w       58c http://127.0.0.1:8080/"

@@ -1,0 +1,33 @@
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://127.0.0.1:8080/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+________________________________________________
+
+[2K:: Progress: [5/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kadmin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms][0m
+[2K:: Progress: [292/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [371/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kbackup                  [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms][0m
+[2K:: Progress: [568/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [671/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kcgi-bin                 [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms][0m
+[2K:: Progress: [822/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kcgi-bin/                [Status: 200, Size: 203, Words: 10, Lines: 15, Duration: 2ms][0m
+[2K:: Progress: [827/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [977/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kcss                     [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms][0m
+[2K:: Progress: [1118/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [1284/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [1565/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [1852/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kicons                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms][0m
+[2K:: Progress: [1967/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kimages                  [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms][0m
+[2K:: Progress: [1996/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kindex.html              [Status: 200, Size: 58, Words: 2, Lines: 2, Duration: 2ms][0m
+[2K:: Progress: [2025/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [2159/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2Kjs                      [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms][0m
+[2K:: Progress: [2183/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::[2K:: Progress: [2451/4614] :: Job [1/1] :: 2325 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [2727/4614] :: Job [1/1] :: 2298 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K.git/HEAD               [Status: 200, Size: 21, Words: 2, Lines: 2, Duration: 214ms][0m
+[2K:: Progress: [3004/4614] :: Job [1/1] :: 2469 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [3026/4614] :: Job [1/1] :: 2469 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [3336/4614] :: Job [1/1] :: 2564 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [3620/4614] :: Job [1/1] :: 2222 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [3901/4614] :: Job [1/1] :: 2272 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [4202/4614] :: Job [1/1] :: 2409 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [4495/4614] :: Job [1/1] :: 2409 req/sec :: Duration: [0:00:01] :: Errors: 0 ::[2K:: Progress: [4614/4614] :: Job [1/1] :: 2500 req/sec :: Duration: [0:00:02] :: Errors: 0 ::[2K                        [Status: 200, Size: 58, Words: 2, Lines: 2, Duration: 2ms][0m
+[2K:: Progress: [4614/4614] :: Job [1/1] :: 995 req/sec :: Duration: [0:00:02] :: Errors: 0 ::[2K:: Progress: [4614/4614] :: Job [1/1] :: 189 req/sec :: Duration: [0:00:02] :: Errors: 0 ::

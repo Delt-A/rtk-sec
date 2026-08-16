@@ -1,0 +1,623 @@
+schema_version = 1
+
+# --- hydra.toml ---
+[filters.hydra]
+description = "Keep hydra credential hits and the run summary, drop STATUS spam"
+match_command = "^hydra\\b.*\\s-[lLpPC]\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "^\\[\\d+\\]\\[",
+  "^\\[DATA\\] attacking",
+  "^\\d+ of \\d+ target",
+  "^\\[ERROR\\]",
+  "^\\[WARNING\\]",
+  "valid password found",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not connect",
+]
+max_lines = 80
+truncate_lines_at = 200
+on_empty = "hydra: no credential hits or errors matched the filter (see full output)"
+
+[[tests.hydra]]
+name = "keeps hit and summary, drops banner and STATUS lines"
+input = """
+Hydra v9.7 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes
+Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-08-16 10:00:00
+[DATA] max 16 tasks per 1 server, overall 16 tasks, 14344399 login tries
+[DATA] attacking ssh://127.0.0.1:22/
+[STATUS] 176.00 tries/min, 176 tries in 00:01h, 14344223 to do in 1358:00h, 16 active
+[22][ssh] host: 127.0.0.1   login: root   password: toor
+1 of 1 target successfully completed, 1 valid password found
+Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-08-16 10:01:00
+"""
+expected = "[DATA] attacking ssh://127.0.0.1:22/\n[22][ssh] host: 127.0.0.1   login: root   password: toor\n1 of 1 target successfully completed, 1 valid password found"
+
+[[tests.hydra]]
+name = "connection error is not swallowed"
+input = "Hydra v9.7 (c) 2023 by van Hauser/THC\n[ERROR] could not connect to ssh://127.0.0.1:22 - Connection refused"
+expected = "[ERROR] could not connect to ssh://127.0.0.1:22 - Connection refused"
+
+# --- impacket.toml ---
+[filters.impacket]
+description = "Strip the Impacket banner from all impacket-* example scripts"
+match_command = "^impacket-"
+strip_ansi = true
+filter_stderr = true
+strip_lines_matching = [
+  "^Impacket v\\d",
+  "^\\s*$",
+]
+max_lines = 200
+truncate_lines_at = 240
+
+[[tests.impacket]]
+name = "strips banner, keeps secretsdump hashes"
+input = """
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies
+
+[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+[*] Cleaning up...
+"""
+expected = "[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)\nAdministrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\nGuest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\n[*] Cleaning up..."
+
+[[tests.impacket]]
+name = "authentication failure is not swallowed"
+input = "Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies\n\n[-] [Errno Connection error (10.10.10.10:445)] [Errno 111] Connection refused"
+expected = "[-] [Errno Connection error (10.10.10.10:445)] [Errno 111] Connection refused"
+
+[[tests.impacket]]
+name = "hash line longer than truncate limit is preserved intact"
+input = "Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies\nkrbtgt:502:aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef:::"
+expected = "krbtgt:502:aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef:::"
+
+# --- john.toml ---
+[filters.john]
+description = "Drop john boilerplate and status lines, keep cracked passwords"
+match_command = "^john\\b"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+# Cracked lines are "password  (user)" with no fixed prefix, so there is nothing
+# rigid to keep on — only the noise has a stable shape.
+strip_lines_matching = [
+  "^\\s*$",
+  "^Using default input encoding:",
+  "^Will run \\d+ OpenMP threads",
+  "^Press 'q' or Ctrl-C to abort",
+  "^Warning: detected hash type",
+  "^Warning: only loading hashes",
+  "^Almost done: Processing the remaining",
+  "^Proceeding with",
+  "^Use the \"--show",
+  "\\d+g/s .*p/s .*c/s .*C/s",
+  "^Session (completed|aborted|stopped)",
+]
+max_lines = 100
+truncate_lines_at = 200
+
+[[tests.john]]
+name = "keeps cracked password and hash-type line, drops status"
+input = """
+Using default input encoding: UTF-8
+Loaded 1 password hash (md5crypt, crypt(3) $1$ (and variants) [MD5 128/128 AVX 4x3])
+Will run 8 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+password123      (alice)
+1g 0:00:00:03 DONE (2026-08-16 10:00) 0.3115g/s 12345p/s 12345c/s 12345C/s
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.
+"""
+expected = "Loaded 1 password hash (md5crypt, crypt(3) $1$ (and variants) [MD5 128/128 AVX 4x3])\npassword123      (alice)"
+
+[[tests.john]]
+name = "no-hashes-loaded error is not swallowed"
+input = "Using default input encoding: UTF-8\nNo password hashes loaded (see FAQ)"
+expected = "No password hashes loaded (see FAQ)"
+
+# --- netexec.toml ---
+[filters.netexec]
+description = "Keep netexec/crackmapexec status lines, cap failure spam"
+match_command = "^(netexec|nxc|crackmapexec|cme)\\s+(smb|ssh|ldap|winrm|mssql|rdp|vnc|ftp|nfs|wmi)\\b"
+strip_ansi = true
+filter_stderr = true
+keep_lines_matching = [
+  "\\[\\+\\]",
+  "\\[-\\]",
+  "\\[\\*\\]",
+  "\\(Pwn3d!\\)",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)traceback",
+]
+# A /24 spray emits 254 [-] lines and the DSL cannot count them; the wrapper
+# profile in bin/rtk-sec collapses those into a single tally.
+max_lines = 80
+truncate_lines_at = 200
+on_empty = "netexec: no status lines matched the filter (see full output)"
+
+[[tests.netexec]]
+name = "keeps host info, failure and Pwn3d"
+input = """
+SMB         10.10.10.10     445    DC01             [*] Windows Server 2019 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)
+SMB         10.10.10.10     445    DC01             [-] corp.local\\alice:Summer2024 STATUS_LOGON_FAILURE
+SMB         10.10.10.10     445    DC01             [+] corp.local\\admin:Password1 (Pwn3d!)
+"""
+expected = "SMB         10.10.10.10     445    DC01             [*] Windows Server 2019 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)\nSMB         10.10.10.10     445    DC01             [-] corp.local\\alice:Summer2024 STATUS_LOGON_FAILURE\nSMB         10.10.10.10     445    DC01             [+] corp.local\\admin:Password1 (Pwn3d!)"
+
+[[tests.netexec]]
+name = "python traceback is not swallowed"
+input = "Traceback (most recent call last):\n  File \"/usr/bin/netexec\", line 8, in <module>\nConnectionRefusedError: [Errno 111] Connection refused"
+expected = "Traceback (most recent call last):\nConnectionRefusedError: [Errno 111] Connection refused"
+
+# --- feroxbuster.toml ---
+[filters.feroxbuster]
+description = "Keep feroxbuster result rows, drop box-drawing banner and progress bars"
+match_command = "^feroxbuster\\b.*\\s-(-url|u)\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "^\\s*\\d{3}\\s+[A-Z]{3,7}\\s+\\d+l\\s+\\d+w\\s+\\d+c\\s",
+  "^\\[!\\]",
+  "^ERROR",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not connect",
+  "(?i)wordlist.*(not found|could not)",
+]
+max_lines = 150
+truncate_lines_at = 200
+on_empty = "feroxbuster: no result rows matched the filter (see full output)"
+
+[[tests.feroxbuster]]
+name = "keeps result rows, drops banner block and blank lines"
+input = """
+ ___  ___  __   __     __      __         __   ___
+by Ben "epi" Risher                      ver: 2.13.1
+ Target Url            | http://127.0.0.1:8080/
+ Threads               | 50
+ Press [ENTER] to use the Scan Management Menu
+
+404      GET       13l       32w      335c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter
+
+200      GET        1l        2w       58c http://127.0.0.1:8080/
+
+301      GET        0l        0w        0c http://127.0.0.1:8080/admin => http://127.0.0.1:8080/admin/
+"""
+expected = "404      GET       13l       32w      335c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter\n200      GET        1l        2w       58c http://127.0.0.1:8080/\n301      GET        0l        0w        0c http://127.0.0.1:8080/admin => http://127.0.0.1:8080/admin/"
+
+[[tests.feroxbuster]]
+name = "connection error is not swallowed"
+input = " ___  ___  __   __\nby Ben \"epi\" Risher                      ver: 2.13.1\n\nERROR feroxbuster::heuristics could not connect to http://127.0.0.1:9999, skipping...\n"
+expected = "ERROR feroxbuster::heuristics could not connect to http://127.0.0.1:9999, skipping..."
+
+[[tests.feroxbuster]]
+name = "indicatif progress bar is collapsed away"
+input = "200      GET        1l        2w       58c http://127.0.0.1:8080/\n[####>---------------] - 1s     2000/4614  1s      found:2       errors:0\r[####################] - 2s     4614/4614  0s      found:9       errors:0"
+expected = "200      GET        1l        2w       58c http://127.0.0.1:8080/"
+
+# --- ffuf.toml ---
+[filters.ffuf]
+description = "Keep ffuf hits and the final progress summary, drop banner and repaints"
+match_command = "^ffuf\\b.*\\s-u\\s"
+strip_ansi = true
+filter_stderr = true
+# ffuf packs many CR-repaints onto one physical line and puts the finding after
+# the last CR, so collapsing to the final repaint keeps the hit, not the progress.
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\[Status: \\d+, Size: \\d+",
+  "^:: Progress: ",
+  "^\\s+:: (Method|URL|Wordlist|Matcher|Filter)\\s+:",
+  "^\\[ERR\\]",
+  "^\\[WARN\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)encountered .* error",
+]
+max_lines = 120
+truncate_lines_at = 200
+on_empty = "ffuf: no hits matched the filter (see full output)"
+
+[[tests.ffuf]]
+name = "collapses CR repaints to the finding, drops ascii banner"
+input = "\n        /'___\\  /'___\\           /'___\\       \n       v2.1.0-dev\n________________________________________________\n\n :: Method           : GET\n :: URL              : http://127.0.0.1:8080/FUZZ\n :: Threads          : 40\n________________________________________________\n\n\r:: Progress: [5/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::\radmin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]\n"
+expected = " :: Method           : GET\n :: URL              : http://127.0.0.1:8080/FUZZ\nadmin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]"
+
+[[tests.ffuf]]
+name = "trailing progress-only line survives as the run summary"
+input = "\r:: Progress: [4202/4614] :: Job [1/1] :: 2409 req/sec :: Duration: [0:00:01] :: Errors: 0 ::\r:: Progress: [4614/4614] :: Job [1/1] :: 2500 req/sec :: Duration: [0:00:02] :: Errors: 0 ::"
+expected = ":: Progress: [4614/4614] :: Job [1/1] :: 2500 req/sec :: Duration: [0:00:02] :: Errors: 0 ::"
+
+[[tests.ffuf]]
+name = "connection error is not swallowed"
+input = "\n       v2.1.0-dev\n________________________________________________\n\n[ERR] Get \"http://127.0.0.1:9999/x\": dial tcp 127.0.0.1:9999: connect: connection refused"
+expected = "[ERR] Get \"http://127.0.0.1:9999/x\": dial tcp 127.0.0.1:9999: connect: connection refused"
+
+# --- gobuster.toml ---
+[filters.gobuster]
+description = "Keep gobuster findings and target config, drop banner and progress"
+match_command = "^gobuster\\s+(dir|dns|vhost|fuzz|s3|gcs|tftp)\\b"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\(Status: \\d+\\)",
+  "^Found: ",
+  "^\\[\\+\\] (Url|Domain|Method|Wordlist):",
+  "^\\[ERROR\\]",
+  "^\\[!\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)no such host",
+  "(?i)wordlist.*not (found|readable)",
+  "(?i)unable to connect",
+]
+max_lines = 100
+truncate_lines_at = 200
+on_empty = "gobuster: no results matched the filter (see full output)"
+
+[[tests.gobuster]]
+name = "keeps findings and target, drops banner and thread config"
+input = """
+===============================================================
+Gobuster v3.8.2
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://127.0.0.1:8080
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/wordlists/dirb/common.txt
+[+] Negative Status codes:   404
+[+] User Agent:              gobuster/3.8.2
+[+] Timeout:                 10s
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+.git/HEAD            (Status: 200) [Size: 21]
+admin                (Status: 301) [Size: 0] [--> /admin/]
+===============================================================
+Finished
+===============================================================
+"""
+expected = "[+] Url:                     http://127.0.0.1:8080\n[+] Method:                  GET\n[+] Wordlist:                /usr/share/wordlists/dirb/common.txt\n.git/HEAD            (Status: 200) [Size: 21]\nadmin                (Status: 301) [Size: 0] [--> /admin/]"
+
+[[tests.gobuster]]
+name = "connection error is not swallowed"
+input = "===============================================================\nGobuster v3.8.2\n===============================================================\n[ERROR] error on running gobuster: unable to connect to http://127.0.0.1:9999/: connection refused"
+expected = "[ERROR] error on running gobuster: unable to connect to http://127.0.0.1:9999/: connection refused"
+
+[[tests.gobuster]]
+name = "dns mode Found lines are kept"
+input = "===============\nGobuster v3.8.2\n===============\nFound: mail.example.com\nFound: www.example.com\nProgress: 100 / 100 (100.00%)"
+expected = "Found: mail.example.com\nFound: www.example.com"
+
+# --- nikto.toml ---
+[filters.nikto]
+description = "Compact nikto output: drop rules/timestamps/prompts, strip reference URLs"
+match_command = "^nikto\\b"
+strip_ansi = true
+filter_stderr = true
+# The "See: <url>" tail on nearly every finding is the single biggest token sink
+# and carries no information the finding text does not already state.
+replace = [
+  { pattern = " See: https?://\\S+", replacement = "" },
+]
+strip_lines_matching = [
+  "^\\s*$",
+  "^-{10,}$",
+  "^- Nikto v",
+  "^\\+ (Start|End) Time:",
+  "^\\+ Target Hostname:",
+  "^\\+ Platform:",
+  "^\\+ \\d+ host\\(s\\) tested",
+  "^\\+ No CGI Directories found",
+  "^\\s+\\*{10,}$",
+  "^\\s+Portions of the server's headers",
+  "^\\s+the Nikto .* database or are newer",
+  "^\\s+to submit this information",
+  "^\\s+for a Nikto update",
+]
+max_lines = 150
+truncate_lines_at = 220
+on_empty = "nikto: nothing survived the filter (see full output)"
+
+[[tests.nikto]]
+name = "keeps findings, drops rules/timestamps, strips See: URLs"
+input = """
+- Nikto v2.6.0
+---------------------------------------------------------------------------
++ Target IP:          127.0.0.1
++ Target Hostname:    127.0.0.1
++ Target Port:        8080
++ Platform:           Unknown
++ Start Time:         2026-08-16 18:24:36 (GMT7)
+---------------------------------------------------------------------------
++ Server: SimpleHTTP/0.6 Python/3.13.14
++ No CGI Directories found (use '-C all' to force check all possible dirs). CGI tests skipped.
++ [003000] /icons/: Directory indexing found. See: http://projects.webappsec.org/w/page/13246922/Directory%20Indexing
++ [006609] /.git/HEAD: Git HEAD file found. Full repo details may be present.
++ 8196 requests: 4 errors and 16 items reported on the remote host
++ End Time:           2026-08-16 18:24:43 (GMT7) (7 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+"""
+expected = "+ Target IP:          127.0.0.1\n+ Target Port:        8080\n+ Server: SimpleHTTP/0.6 Python/3.13.14\n+ [003000] /icons/: Directory indexing found.\n+ [006609] /.git/HEAD: Git HEAD file found. Full repo details may be present.\n+ 8196 requests: 4 errors and 16 items reported on the remote host"
+
+[[tests.nikto]]
+name = "the interactive CIRT.net submission prompt is dropped"
+input = """
++ 1 host(s) tested
+
+      *********************************************************************
+      Portions of the server's headers (Python/3.13.14) are not in
+      the Nikto 2.6.0 database or are newer than the known string. Would you like
+      to submit this information (*no server specific data*) to CIRT.net
+      for a Nikto update (or you may email to sullo@cirt.net) (y/n)?
+"""
+expected = "nikto: nothing survived the filter (see full output)"
+
+[[tests.nikto]]
+name = "connection error is not swallowed"
+input = "- Nikto v2.6.0\n---------------------------------------------------------------------------\n+ ERROR: Unable to connect to host 127.0.0.1 on port 9999"
+expected = "+ ERROR: Unable to connect to host 127.0.0.1 on port 9999"
+
+# --- nuclei.toml ---
+[filters.nuclei]
+description = "Keep nuclei findings and fatal errors, drop INF/WRN startup noise"
+match_command = "^nuclei\\b.*\\s-(u|l|target|list)\\s"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\] \\[(critical|high|medium|low|info|unknown)\\]",
+  "^\\[FTL\\]",
+  "^\\[ERR\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not (create|run|resolve|read)",
+  "(?i)no templates (provided|found)",
+]
+max_lines = 200
+truncate_lines_at = 240
+on_empty = "nuclei: no findings matched the filter (see full output)"
+
+[[tests.nuclei]]
+name = "keeps findings of every severity, drops INF/WRN startup block"
+input = """
+[INF] Current nuclei version: v3.8.0 (latest)
+[INF] Current nuclei-templates version: v10.2.9
+[INF] Templates loaded for current scan: 8123
+[WRN] Found 5 templates with runtime error
+[INF] Targets loaded for current scan: 1
+[INF] Templates clustered: 512 (Reduced 400 Requests)
+[tech-detect:nginx] [http] [info] http://127.0.0.1:8080
+[CVE-2021-41773] [http] [critical] http://127.0.0.1:8080/cgi-bin/.%2e/etc/passwd
+[INF] Using Interactsh Server: oast.pro
+"""
+expected = "[tech-detect:nginx] [http] [info] http://127.0.0.1:8080\n[CVE-2021-41773] [http] [critical] http://127.0.0.1:8080/cgi-bin/.%2e/etc/passwd"
+
+[[tests.nuclei]]
+name = "fatal error survives the keep filter"
+input = "[INF] Current nuclei version: v3.8.0 (latest)\n[FTL] Could not create runner: no templates provided for scan"
+expected = "[FTL] Could not create runner: no templates provided for scan"
+
+[[tests.nuclei]]
+name = "empty result reports that the filter matched nothing, not that nothing was found"
+input = "[INF] Current nuclei version: v3.8.0 (latest)\n[INF] Templates loaded for current scan: 8123"
+expected = "nuclei: no findings matched the filter (see full output)"
+
+# --- sqlmap.toml ---
+[filters.sqlmap]
+description = "Keep sqlmap injection points and verdicts, drop banner/timestamps/probe chatter"
+match_command = "^sqlmap\\b.*\\s(-u|-r|--url|-m|-g)\\b"
+strip_ansi = true
+filter_stderr = true
+# sqlmap prefixes machinery with "[hh:mm:ss] [LEVEL]" and prints results
+# (Parameter/Type/Title/Payload, DBMS verdicts, table dumps) with no prefix at
+# all — so only named INFO/WARNING noise is stripped, never a bare line.
+replace = [
+  { pattern = "(?m)^\\[\\d\\d:\\d\\d:\\d\\d\\] ", replacement = "" },
+  { pattern = " Do you want to keep testing the others \\(if any\\)\\? \\[y/N\\] [YyNn]", replacement = "" },
+]
+strip_lines_matching = [
+  "^\\s*$",
+  "^\\s*_{3,}\\s*$",
+  "^\\s*__H__\\s*$",
+  "^ ___ ___\\[",
+  "^\\|",
+  "^\\s+\\|_\\|V",
+  "^\\[!\\] legal disclaimer:",
+  "^\\[\\*\\] (starting|ending) @",
+  "^\\[\\d+/\\d+\\] URL:",
+  "^do you want to ",
+  "^for the remaining tests, do you want",
+  "^it looks like the back-end DBMS is .*Do you want",
+  "^> [YyNn]$",
+  "\\[INFO\\] testing ",
+  "\\[INFO\\] using '.*' as the CSV",
+  "\\[INFO\\] checking if the target is protected",
+  "\\[INFO\\] target URL content is stable",
+  "\\[INFO\\] automatically extending",
+  "\\[INFO\\] 'ORDER BY' technique",
+  "\\[INFO\\] target URL appears to have \\d+ column",
+  "\\[INFO\\] you can find results",
+  "\\[WARNING\\] turning off pre-connect",
+  "\\[WARNING\\] reflective value",
+]
+max_lines = 150
+# The UNION payload is the artifact; truncating it mid-CHAR() destroys it.
+truncate_lines_at = 400
+on_empty = "sqlmap: nothing survived the filter (see full output)"
+
+[[tests.sqlmap]]
+name = "keeps the injection point block verbatim, drops probe chatter"
+input = """
+[18:41:34] [INFO] testing 'AND boolean-based blind - WHERE or HAVING clause'
+[18:41:34] [INFO] GET parameter 'id' appears to be 'AND boolean-based blind - WHERE or HAVING clause' injectable (with --string="alice")
+[18:41:38] [WARNING] reflective value(s) found and filtering out
+GET parameter 'id' is vulnerable. Do you want to keep testing the others (if any)? [y/N] N
+sqlmap identified the following injection point(s) with a total of 51 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: AND boolean-based blind - WHERE or HAVING clause
+    Payload: id=1 AND 3205=3205
+---
+[18:41:38] [INFO] the back-end DBMS is SQLite
+back-end DBMS: SQLite
+"""
+expected = "[INFO] GET parameter 'id' appears to be 'AND boolean-based blind - WHERE or HAVING clause' injectable (with --string=\"alice\")\nGET parameter 'id' is vulnerable.\nsqlmap identified the following injection point(s) with a total of 51 HTTP(s) requests:\n---\nParameter: id (GET)\n    Type: boolean-based blind\n    Title: AND boolean-based blind - WHERE or HAVING clause\n    Payload: id=1 AND 3205=3205\n---\n[INFO] the back-end DBMS is SQLite\nback-end DBMS: SQLite"
+
+[[tests.sqlmap]]
+name = "banner and legal disclaimer are dropped"
+input = """
+        ___
+       __H__
+ ___ ___[(]_____ ___ ___  {1.10.6#stable}
+|_ -| . [.]     | .'| . |
+|___|_  ["]_|_|_|__,|  _|
+      |_|V...       |_|   https://sqlmap.org
+
+[!] legal disclaimer: Usage of sqlmap for attacking targets without prior mutual consent is illegal.
+
+[*] starting @ 18:41:34 /2026-08-16/
+back-end DBMS: SQLite
+"""
+expected = "back-end DBMS: SQLite"
+
+[[tests.sqlmap]]
+name = "a not-injectable verdict is not swallowed"
+input = "[18:41:34] [INFO] testing 'Generic inline queries'\n[18:41:38] [WARNING] GET parameter 'id' does not seem to be injectable\n[18:41:38] [CRITICAL] all tested parameters do not appear to be injectable."
+expected = "[WARNING] GET parameter 'id' does not seem to be injectable\n[CRITICAL] all tested parameters do not appear to be injectable."
+
+[[tests.sqlmap]]
+name = "connection failure is not swallowed"
+input = "[18:41:34] [INFO] testing connection to the target URL\n[18:41:34] [CRITICAL] unable to connect to the target URL. sqlmap is going to retry the request(s)"
+expected = "[CRITICAL] unable to connect to the target URL. sqlmap is going to retry the request(s)"
+
+# --- sslscan.toml ---
+[filters.sslscan]
+description = "Drop rejected ciphers, keep accepted/preferred and vulnerability checks"
+match_command = "^sslscan\\b"
+strip_ansi = true
+filter_stderr = true
+# A typical run lists 200-400 "Rejected" ciphers against a dozen that matter.
+strip_lines_matching = [
+  "^\\s*$",
+  "^Rejected\\s+",
+  "^\\s*Version: ",
+  "^\\s*OpenSSL ",
+  "^\\s+_+$",
+]
+max_lines = 120
+truncate_lines_at = 160
+
+[[tests.sslscan]]
+name = "drops Rejected rows, keeps Preferred/Accepted and heartbleed verdict"
+input = """
+Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1
+
+  Heartbleed:
+TLS 1.2 not vulnerable to heartbleed
+
+  Supported Server Cipher(s):
+Preferred TLSv1.3  128 bits  TLS_AES_128_GCM_SHA256        Curve 25519 DHE 253
+Accepted  TLSv1.2  256 bits  ECDHE-RSA-AES256-GCM-SHA384   Curve 25519 DHE 253
+Rejected  TLSv1.2  128 bits  DHE-RSA-AES128-SHA
+Rejected  TLSv1.2  112 bits  ECDHE-RSA-DES-CBC3-SHA
+"""
+expected = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\n  Heartbleed:\nTLS 1.2 not vulnerable to heartbleed\n  Supported Server Cipher(s):\nPreferred TLSv1.3  128 bits  TLS_AES_128_GCM_SHA256        Curve 25519 DHE 253\nAccepted  TLSv1.2  256 bits  ECDHE-RSA-AES256-GCM-SHA384   Curve 25519 DHE 253"
+
+[[tests.sslscan]]
+name = "connection failure is not swallowed"
+input = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\nERROR: Could not open a connection to host 127.0.0.1 on port 443."
+expected = "Testing SSL server 127.0.0.1 on port 443 using SNI name 127.0.0.1\nERROR: Could not open a connection to host 127.0.0.1 on port 443."
+
+# --- wafw00f.toml ---
+[filters.wafw00f]
+description = "Keep wafw00f verdict lines, drop the ASCII-art dog banner"
+match_command = "^wafw00f\\s+[^-]"
+strip_ansi = true
+filter_stderr = true
+keep_lines_matching = [
+  "^\\[\\*\\] Checking ",
+  "^\\[\\+\\] ",
+  "^\\[-\\] ",
+  "^\\[~\\] Number of requests:",
+  "is behind ",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not (connect|resolve)",
+]
+max_lines = 40
+truncate_lines_at = 200
+on_empty = "wafw00f: no verdict lines matched the filter (see full output)"
+
+[[tests.wafw00f]]
+name = "keeps verdict, drops the ascii dog"
+input = """
+                   ______
+                  /      \\
+                 (  Woof! )
+                  \\  ____/
+                    ~ WAFW00F : v2.4.2 ~
+    The Web Application Firewall Fingerprinting Toolkit
+
+[*] Checking http://127.0.0.1:8080
+[+] Generic Detection results:
+[-] No WAF detected by the generic detection
+[~] Number of requests: 7
+"""
+expected = "[*] Checking http://127.0.0.1:8080\n[+] Generic Detection results:\n[-] No WAF detected by the generic detection\n[~] Number of requests: 7"
+
+[[tests.wafw00f]]
+name = "positive WAF identification is kept"
+input = "[*] Checking https://example.com\n[+] The site https://example.com is behind Cloudflare (Cloudflare Inc.) WAF.\n[~] Number of requests: 2"
+expected = "[*] Checking https://example.com\n[+] The site https://example.com is behind Cloudflare (Cloudflare Inc.) WAF.\n[~] Number of requests: 2"
+
+[[tests.wafw00f]]
+name = "connection error is not swallowed"
+input = "[*] Checking http://127.0.0.1:9999\nERROR:wafw00f:Site http://127.0.0.1:9999 appears to be down - connection refused"
+expected = "[*] Checking http://127.0.0.1:9999\nERROR:wafw00f:Site http://127.0.0.1:9999 appears to be down - connection refused"
+
+# --- whatweb.toml ---
+[filters.whatweb]
+description = "Compact whatweb output — strip ANSI, cap very long fingerprint lines"
+match_command = "^whatweb\\b"
+strip_ansi = true
+filter_stderr = true
+strip_lines_matching = [
+  "^\\s*$",
+]
+max_lines = 60
+truncate_lines_at = 400
+
+[[tests.whatweb]]
+name = "single-target fingerprint passes through"
+input = "http://127.0.0.1:8080 [200 OK] Country[RESERVED][ZZ], HTTPServer[SimpleHTTP/0.6 Python/3.13.14], IP[127.0.0.1], Title[rtk-sec lab]\n"
+expected = "http://127.0.0.1:8080 [200 OK] Country[RESERVED][ZZ], HTTPServer[SimpleHTTP/0.6 Python/3.13.14], IP[127.0.0.1], Title[rtk-sec lab]"
+
+[[tests.whatweb]]
+name = "connection error is not swallowed"
+input = "ERROR Opening: http://127.0.0.1:9999 - Failed to open TCP connection to 127.0.0.1:9999 (Connection refused)"
+expected = "ERROR Opening: http://127.0.0.1:9999 - Failed to open TCP connection to 127.0.0.1:9999 (Connection refused)"
+

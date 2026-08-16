@@ -1,0 +1,44 @@
+[filters.john]
+description = "Drop john boilerplate and status lines, keep cracked passwords"
+match_command = "^john\\b"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+# Cracked lines are "password  (user)" with no fixed prefix, so there is nothing
+# rigid to keep on — only the noise has a stable shape.
+strip_lines_matching = [
+  "^\\s*$",
+  "^Using default input encoding:",
+  "^Will run \\d+ OpenMP threads",
+  "^Press 'q' or Ctrl-C to abort",
+  "^Warning: detected hash type",
+  "^Warning: only loading hashes",
+  "^Almost done: Processing the remaining",
+  "^Proceeding with",
+  "^Use the \"--show",
+  "\\d+g/s .*p/s .*c/s .*C/s",
+  "^Session (completed|aborted|stopped)",
+]
+max_lines = 100
+truncate_lines_at = 200
+
+[[tests.john]]
+name = "keeps cracked password and hash-type line, drops status"
+input = """
+Using default input encoding: UTF-8
+Loaded 1 password hash (md5crypt, crypt(3) $1$ (and variants) [MD5 128/128 AVX 4x3])
+Will run 8 OpenMP threads
+Press 'q' or Ctrl-C to abort, almost any other key for status
+password123      (alice)
+1g 0:00:00:03 DONE (2026-08-16 10:00) 0.3115g/s 12345p/s 12345c/s 12345C/s
+Use the "--show" option to display all of the cracked passwords reliably
+Session completed.
+"""
+expected = "Loaded 1 password hash (md5crypt, crypt(3) $1$ (and variants) [MD5 128/128 AVX 4x3])\npassword123      (alice)"
+
+[[tests.john]]
+name = "no-hashes-loaded error is not swallowed"
+input = "Using default input encoding: UTF-8\nNo password hashes loaded (see FAQ)"
+expected = "No password hashes loaded (see FAQ)"

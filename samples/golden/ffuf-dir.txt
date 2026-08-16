@@ -1,0 +1,16 @@
+ :: Method           : GET
+ :: URL              : http://127.0.0.1:8080/FUZZ
+ :: Wordlist         : FUZZ: /usr/share/wordlists/dirb/common.txt
+ :: Matcher          : Response status: 200-299,301,302,307,401,403,405,500
+admin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]
+backup                  [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms]
+cgi-bin                 [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms]
+cgi-bin/                [Status: 200, Size: 203, Words: 10, Lines: 15, Duration: 2ms]
+css                     [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]
+icons                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms]
+images                  [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms]
+index.html              [Status: 200, Size: 58, Words: 2, Lines: 2, Duration: 2ms]
+js                      [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 1ms]
+.git/HEAD               [Status: 200, Size: 21, Words: 2, Lines: 2, Duration: 214ms]
+                        [Status: 200, Size: 58, Words: 2, Lines: 2, Duration: 2ms]
+:: Progress: [4614/4614] :: Job [1/1] :: 189 req/sec :: Duration: [0:00:02] :: Errors: 0 ::

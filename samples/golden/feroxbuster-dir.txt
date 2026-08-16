@@ -1,0 +1,17 @@
+404      GET       13l       32w      335c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter
+200      GET        1l        2w       58c http://127.0.0.1:8080/
+301      GET        0l        0w        0c http://127.0.0.1:8080/admin => http://127.0.0.1:8080/admin/
+301      GET        0l        0w        0c http://127.0.0.1:8080/cgi-bin => http://127.0.0.1:8080/cgi-bin/
+200      GET       14l       23w      203c http://127.0.0.1:8080/cgi-bin/
+301      GET        0l        0w        0c http://127.0.0.1:8080/css => http://127.0.0.1:8080/css/
+200      GET        1l        1w        7c http://127.0.0.1:8080/css/style.css
+301      GET        0l        0w        0c http://127.0.0.1:8080/icons => http://127.0.0.1:8080/icons/
+200      GET        1l        1w        7c http://127.0.0.1:8080/icons/README
+301      GET        0l        0w        0c http://127.0.0.1:8080/images => http://127.0.0.1:8080/images/
+200      GET        1l        2w       58c http://127.0.0.1:8080/index.html
+301      GET        0l        0w        0c http://127.0.0.1:8080/js => http://127.0.0.1:8080/js/
+200      GET        1l        2w        8c http://127.0.0.1:8080/js/app.js
+200      GET        1l        2w       21c http://127.0.0.1:8080/.git/HEAD
+301      GET        0l        0w        0c http://127.0.0.1:8080/backup => http://127.0.0.1:8080/backup/
+200      GET        1l        2w       12c http://127.0.0.1:8080/admin/index.html
+200      GET        1l        1w        7c http://127.0.0.1:8080/backup/index.html

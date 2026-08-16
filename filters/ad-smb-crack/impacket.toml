@@ -1,0 +1,33 @@
+[filters.impacket]
+description = "Strip the Impacket banner from all impacket-* example scripts"
+match_command = "^impacket-"
+strip_ansi = true
+filter_stderr = true
+strip_lines_matching = [
+  "^Impacket v\\d",
+  "^\\s*$",
+]
+max_lines = 200
+truncate_lines_at = 240
+
+[[tests.impacket]]
+name = "strips banner, keeps secretsdump hashes"
+input = """
+Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies
+
+[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+Guest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::
+[*] Cleaning up...
+"""
+expected = "[*] Dumping local SAM hashes (uid:rid:lmhash:nthash)\nAdministrator:500:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\nGuest:501:aad3b435b51404eeaad3b435b51404ee:31d6cfe0d16ae931b73c59d7e0c089c0:::\n[*] Cleaning up..."
+
+[[tests.impacket]]
+name = "authentication failure is not swallowed"
+input = "Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies\n\n[-] [Errno Connection error (10.10.10.10:445)] [Errno 111] Connection refused"
+expected = "[-] [Errno Connection error (10.10.10.10:445)] [Errno 111] Connection refused"
+
+[[tests.impacket]]
+name = "hash line longer than truncate limit is preserved intact"
+input = "Impacket v0.12.0 - Copyright Fortra, LLC and its affiliated companies\nkrbtgt:502:aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef:::"
+expected = "krbtgt:502:aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef:::"

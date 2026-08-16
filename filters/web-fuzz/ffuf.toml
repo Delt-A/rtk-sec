@@ -1,0 +1,38 @@
+[filters.ffuf]
+description = "Keep ffuf hits and the final progress summary, drop banner and repaints"
+match_command = "^ffuf\\b.*\\s-u\\s"
+strip_ansi = true
+filter_stderr = true
+# ffuf packs many CR-repaints onto one physical line and puts the finding after
+# the last CR, so collapsing to the final repaint keeps the hit, not the progress.
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\[Status: \\d+, Size: \\d+",
+  "^:: Progress: ",
+  "^\\s+:: (Method|URL|Wordlist|Matcher|Filter)\\s+:",
+  "^\\[ERR\\]",
+  "^\\[WARN\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)encountered .* error",
+]
+max_lines = 120
+truncate_lines_at = 200
+on_empty = "ffuf: no hits matched the filter (see full output)"
+
+[[tests.ffuf]]
+name = "collapses CR repaints to the finding, drops ascii banner"
+input = "\n        /'___\\  /'___\\           /'___\\       \n       v2.1.0-dev\n________________________________________________\n\n :: Method           : GET\n :: URL              : http://127.0.0.1:8080/FUZZ\n :: Threads          : 40\n________________________________________________\n\n\r:: Progress: [5/4614] :: Job [1/1] :: 0 req/sec :: Duration: [0:00:00] :: Errors: 0 ::\radmin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]\n"
+expected = " :: Method           : GET\n :: URL              : http://127.0.0.1:8080/FUZZ\nadmin                   [Status: 301, Size: 0, Words: 1, Lines: 1, Duration: 2ms]"
+
+[[tests.ffuf]]
+name = "trailing progress-only line survives as the run summary"
+input = "\r:: Progress: [4202/4614] :: Job [1/1] :: 2409 req/sec :: Duration: [0:00:01] :: Errors: 0 ::\r:: Progress: [4614/4614] :: Job [1/1] :: 2500 req/sec :: Duration: [0:00:02] :: Errors: 0 ::"
+expected = ":: Progress: [4614/4614] :: Job [1/1] :: 2500 req/sec :: Duration: [0:00:02] :: Errors: 0 ::"
+
+[[tests.ffuf]]
+name = "connection error is not swallowed"
+input = "\n       v2.1.0-dev\n________________________________________________\n\n[ERR] Get \"http://127.0.0.1:9999/x\": dial tcp 127.0.0.1:9999: connect: connection refused"
+expected = "[ERR] Get \"http://127.0.0.1:9999/x\": dial tcp 127.0.0.1:9999: connect: connection refused"

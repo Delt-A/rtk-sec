@@ -1,0 +1,68 @@
+[filters.nikto]
+description = "Compact nikto output: drop rules/timestamps/prompts, strip reference URLs"
+match_command = "^nikto\\b"
+strip_ansi = true
+filter_stderr = true
+# The "See: <url>" tail on nearly every finding is the single biggest token sink
+# and carries no information the finding text does not already state.
+replace = [
+  { pattern = " See: https?://\\S+", replacement = "" },
+]
+strip_lines_matching = [
+  "^\\s*$",
+  "^-{10,}$",
+  "^- Nikto v",
+  "^\\+ (Start|End) Time:",
+  "^\\+ Target Hostname:",
+  "^\\+ Platform:",
+  "^\\+ \\d+ host\\(s\\) tested",
+  "^\\+ No CGI Directories found",
+  "^\\s+\\*{10,}$",
+  "^\\s+Portions of the server's headers",
+  "^\\s+the Nikto .* database or are newer",
+  "^\\s+to submit this information",
+  "^\\s+for a Nikto update",
+]
+max_lines = 150
+truncate_lines_at = 220
+on_empty = "nikto: nothing survived the filter (see full output)"
+
+[[tests.nikto]]
+name = "keeps findings, drops rules/timestamps, strips See: URLs"
+input = """
+- Nikto v2.6.0
+---------------------------------------------------------------------------
++ Target IP:          127.0.0.1
++ Target Hostname:    127.0.0.1
++ Target Port:        8080
++ Platform:           Unknown
++ Start Time:         2026-08-16 18:24:36 (GMT7)
+---------------------------------------------------------------------------
++ Server: SimpleHTTP/0.6 Python/3.13.14
++ No CGI Directories found (use '-C all' to force check all possible dirs). CGI tests skipped.
++ [003000] /icons/: Directory indexing found. See: http://projects.webappsec.org/w/page/13246922/Directory%20Indexing
++ [006609] /.git/HEAD: Git HEAD file found. Full repo details may be present.
++ 8196 requests: 4 errors and 16 items reported on the remote host
++ End Time:           2026-08-16 18:24:43 (GMT7) (7 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+"""
+expected = "+ Target IP:          127.0.0.1\n+ Target Port:        8080\n+ Server: SimpleHTTP/0.6 Python/3.13.14\n+ [003000] /icons/: Directory indexing found.\n+ [006609] /.git/HEAD: Git HEAD file found. Full repo details may be present.\n+ 8196 requests: 4 errors and 16 items reported on the remote host"
+
+[[tests.nikto]]
+name = "the interactive CIRT.net submission prompt is dropped"
+input = """
++ 1 host(s) tested
+
+      *********************************************************************
+      Portions of the server's headers (Python/3.13.14) are not in
+      the Nikto 2.6.0 database or are newer than the known string. Would you like
+      to submit this information (*no server specific data*) to CIRT.net
+      for a Nikto update (or you may email to sullo@cirt.net) (y/n)?
+"""
+expected = "nikto: nothing survived the filter (see full output)"
+
+[[tests.nikto]]
+name = "connection error is not swallowed"
+input = "- Nikto v2.6.0\n---------------------------------------------------------------------------\n+ ERROR: Unable to connect to host 127.0.0.1 on port 9999"
+expected = "+ ERROR: Unable to connect to host 127.0.0.1 on port 9999"

@@ -1,0 +1,13 @@
+[+] Url:                     http://127.0.0.1:8080
+[+] Method:                  GET
+[+] Wordlist:                /usr/share/wordlists/dirb/common.txt
+.git/HEAD            (Status: 200) [Size: 21]
+admin                (Status: 301) [Size: 0] [--> /admin/]
+backup               (Status: 301) [Size: 0] [--> /backup/]
+cgi-bin              (Status: 301) [Size: 0] [--> /cgi-bin/]
+cgi-bin/             (Status: 200) [Size: 203]
+css                  (Status: 301) [Size: 0] [--> /css/]
+icons                (Status: 301) [Size: 0] [--> /icons/]
+images               (Status: 301) [Size: 0] [--> /images/]
+index.html           (Status: 200) [Size: 58]
+js                   (Status: 301) [Size: 0] [--> /js/]

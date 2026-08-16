@@ -1,0 +1,58 @@
+[filters.gobuster]
+description = "Keep gobuster findings and target config, drop banner and progress"
+match_command = "^gobuster\\s+(dir|dns|vhost|fuzz|s3|gcs|tftp)\\b"
+strip_ansi = true
+filter_stderr = true
+replace = [
+  { pattern = "(?m)^.*\\r", replacement = "" },
+]
+keep_lines_matching = [
+  "\\(Status: \\d+\\)",
+  "^Found: ",
+  "^\\[\\+\\] (Url|Domain|Method|Wordlist):",
+  "^\\[ERROR\\]",
+  "^\\[!\\]",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)no such host",
+  "(?i)wordlist.*not (found|readable)",
+  "(?i)unable to connect",
+]
+max_lines = 100
+truncate_lines_at = 200
+on_empty = "gobuster: no results matched the filter (see full output)"
+
+[[tests.gobuster]]
+name = "keeps findings and target, drops banner and thread config"
+input = """
+===============================================================
+Gobuster v3.8.2
+by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)
+===============================================================
+[+] Url:                     http://127.0.0.1:8080
+[+] Method:                  GET
+[+] Threads:                 10
+[+] Wordlist:                /usr/share/wordlists/dirb/common.txt
+[+] Negative Status codes:   404
+[+] User Agent:              gobuster/3.8.2
+[+] Timeout:                 10s
+===============================================================
+Starting gobuster in directory enumeration mode
+===============================================================
+.git/HEAD            (Status: 200) [Size: 21]
+admin                (Status: 301) [Size: 0] [--> /admin/]
+===============================================================
+Finished
+===============================================================
+"""
+expected = "[+] Url:                     http://127.0.0.1:8080\n[+] Method:                  GET\n[+] Wordlist:                /usr/share/wordlists/dirb/common.txt\n.git/HEAD            (Status: 200) [Size: 21]\nadmin                (Status: 301) [Size: 0] [--> /admin/]"
+
+[[tests.gobuster]]
+name = "connection error is not swallowed"
+input = "===============================================================\nGobuster v3.8.2\n===============================================================\n[ERROR] error on running gobuster: unable to connect to http://127.0.0.1:9999/: connection refused"
+expected = "[ERROR] error on running gobuster: unable to connect to http://127.0.0.1:9999/: connection refused"
+
+[[tests.gobuster]]
+name = "dns mode Found lines are kept"
+input = "===============\nGobuster v3.8.2\n===============\nFound: mail.example.com\nFound: www.example.com\nProgress: 100 / 100 (100.00%)"
+expected = "Found: mail.example.com\nFound: www.example.com"

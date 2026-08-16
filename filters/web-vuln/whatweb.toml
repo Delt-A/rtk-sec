@@ -1,0 +1,20 @@
+[filters.whatweb]
+description = "Compact whatweb output — strip ANSI, cap very long fingerprint lines"
+match_command = "^whatweb\\b"
+strip_ansi = true
+filter_stderr = true
+strip_lines_matching = [
+  "^\\s*$",
+]
+max_lines = 60
+truncate_lines_at = 400
+
+[[tests.whatweb]]
+name = "single-target fingerprint passes through"
+input = "http://127.0.0.1:8080 [200 OK] Country[RESERVED][ZZ], HTTPServer[SimpleHTTP/0.6 Python/3.13.14], IP[127.0.0.1], Title[rtk-sec lab]\n"
+expected = "http://127.0.0.1:8080 [200 OK] Country[RESERVED][ZZ], HTTPServer[SimpleHTTP/0.6 Python/3.13.14], IP[127.0.0.1], Title[rtk-sec lab]"
+
+[[tests.whatweb]]
+name = "connection error is not swallowed"
+input = "ERROR Opening: http://127.0.0.1:9999 - Failed to open TCP connection to 127.0.0.1:9999 (Connection refused)"
+expected = "ERROR Opening: http://127.0.0.1:9999 - Failed to open TCP connection to 127.0.0.1:9999 (Connection refused)"

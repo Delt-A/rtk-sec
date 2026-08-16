@@ -1,0 +1,45 @@
+[filters.wafw00f]
+description = "Keep wafw00f verdict lines, drop the ASCII-art dog banner"
+match_command = "^wafw00f\\s+[^-]"
+strip_ansi = true
+filter_stderr = true
+keep_lines_matching = [
+  "^\\[\\*\\] Checking ",
+  "^\\[\\+\\] ",
+  "^\\[-\\] ",
+  "^\\[~\\] Number of requests:",
+  "is behind ",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)could not (connect|resolve)",
+]
+max_lines = 40
+truncate_lines_at = 200
+on_empty = "wafw00f: no verdict lines matched the filter (see full output)"
+
+[[tests.wafw00f]]
+name = "keeps verdict, drops the ascii dog"
+input = """
+                   ______
+                  /      \\
+                 (  Woof! )
+                  \\  ____/
+                    ~ WAFW00F : v2.4.2 ~
+    The Web Application Firewall Fingerprinting Toolkit
+
+[*] Checking http://127.0.0.1:8080
+[+] Generic Detection results:
+[-] No WAF detected by the generic detection
+[~] Number of requests: 7
+"""
+expected = "[*] Checking http://127.0.0.1:8080\n[+] Generic Detection results:\n[-] No WAF detected by the generic detection\n[~] Number of requests: 7"
+
+[[tests.wafw00f]]
+name = "positive WAF identification is kept"
+input = "[*] Checking https://example.com\n[+] The site https://example.com is behind Cloudflare (Cloudflare Inc.) WAF.\n[~] Number of requests: 2"
+expected = "[*] Checking https://example.com\n[+] The site https://example.com is behind Cloudflare (Cloudflare Inc.) WAF.\n[~] Number of requests: 2"
+
+[[tests.wafw00f]]
+name = "connection error is not swallowed"
+input = "[*] Checking http://127.0.0.1:9999\nERROR:wafw00f:Site http://127.0.0.1:9999 appears to be down - connection refused"
+expected = "[*] Checking http://127.0.0.1:9999\nERROR:wafw00f:Site http://127.0.0.1:9999 appears to be down - connection refused"

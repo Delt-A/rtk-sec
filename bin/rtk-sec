@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""rtk-sec — tee-and-summarise wrapper for high-volume security tools.
+
+Exists for the three things an rtk TOML filter provably cannot do:
+  1. inject flags into the command (-s, -silent, --no-state)
+  2. count / group / deduplicate findings
+  3. run a follow-up command (hashcat --show)
+
+It also closes the safety gap found in rtk 0.45.0: rtk's own tee only fires when
+the wrapped command exits non-zero, so a *successful* scan — the one that has
+findings — is never preserved. This wrapper always writes the raw stream.
+
+Usage:  rtk-sec <tool> [args...]
+        rtk-sec --rtk-sec-raw <tool> [args...]     tee only, no summarising
+"""
+import os
+import re
+import shutil
+import signal
+import subprocess
+import sys
+import time
+from collections import Counter, OrderedDict
+
+VERSION = "0.1.0"
+ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+def tee_dir():
+    base = os.environ.get("RTK_SEC_OUT") or os.path.join(
+        os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"),
+        "rtk-sec",
+    )
+    os.makedirs(base, mode=0o700, exist_ok=True)
+    return base
+
+
+def prune(base, keep=200, max_bytes=2 * 1024**3, current=None):
+    try:
+        logs = [os.path.join(base, f) for f in os.listdir(base) if f.endswith(".log")]
+    except OSError:
+        return
+    logs = [f for f in logs if f != current]
+    logs.sort(key=lambda f: os.path.getmtime(f), reverse=True)
+    total = 0
+    for i, f in enumerate(logs):
+        try:
+            total += os.path.getsize(f)
+            if i >= keep or total > max_bytes:
+                os.unlink(f)
+        except OSError:
+            pass
+
+
+def clean(line):
+    return ANSI.sub("", line.split("\r")[-1]).rstrip("\n")
+
+
+class Summary:
+    """Base collector: remembers nothing, prints the tail."""
+
+    inject = ()
+
+    def __init__(self):
+        self.tail = []
+        self.errors = []
+
+    def feed(self, raw):
+        line = clean(raw)
+        if not line.strip():
+            return
+        if re.search(r"(?i)\b(error|refused|traceback|fatal|could not connect)\b", line):
+            if line not in self.errors:
+                self.errors.append(line)
+        self.tail.append(line)
+        if len(self.tail) > 40:
+            self.tail.pop(0)
+
+    def render(self):
+        return self.tail
+
+    def error_block(self):
+        # Errors are always surfaced verbatim: a summary that hides a failed scan
+        # is worse than no summary at all.
+        return self.errors[:10]
+
+
+class Grouped(Summary):
+    """Group hits by HTTP status, list a few URLs per group."""
+
+    row = None
+    per_group = 8
+
+    def __init__(self):
+        super().__init__()
+        self.groups = OrderedDict()
+        self.count = 0
+
+    def feed(self, raw):
+        line = clean(raw)
+        m = self.row.search(line) if line else None
+        if not m:
+            return super().feed(raw)
+        status, label = m.group("status"), m.group("label").strip()
+        self.groups.setdefault(status, []).append(label)
+        self.count += 1
+
+    def render(self):
+        if not self.groups:
+            return ["no hits"]
+        tally = "  ".join(
+            f"{s}: {len(v)}" for s, v in sorted(self.groups.items())
+        )
+        out = [f"{self.count} hits — {tally}"]
+        for status, labels in sorted(self.groups.items()):
+            shown = labels[: self.per_group]
+            out.append(f"  [{status}] " + ", ".join(shown)
+                       + (f"  (+{len(labels) - len(shown)} more)" if len(labels) > len(shown) else ""))
+        return out
+
+
+class Ffuf(Grouped):
+    # Not -s: silent mode strips the Status/Size metadata this summary groups on.
+    inject = ("-noninteractive",)
+    row = re.compile(r"^(?P<label>\S*)\s+\[Status: (?P<status>\d+),")
+
+
+class Ferox(Grouped):
+    inject = ("--no-state",)
+    row = re.compile(r"^\s*(?P<status>\d{3})\s+[A-Z]{3,7}\s+\d+l\s+\d+w\s+\d+c\s+(?P<label>\S+)")
+
+
+class Nuclei(Summary):
+    inject = ("-silent", "-nc")
+    ORDER = ["critical", "high", "medium", "low", "info", "unknown"]
+    HIT = re.compile(r"^\[(?P<tid>[^\]]+)\][^\[]*\[[^\]]+\]\s*\[(?P<sev>\w+)\]\s*(?P<target>\S+)")
+
+    def __init__(self):
+        super().__init__()
+        self.by_sev = {}
+
+    def feed(self, raw):
+        line = clean(raw)
+        m = self.HIT.match(line) if line else None
+        if not m:
+            return super().feed(raw)
+        sev = m.group("sev").lower()
+        self.by_sev.setdefault(sev, Counter())[m.group("tid")] += 1
+
+    def render(self):
+        if not self.by_sev:
+            return ["no findings"]
+        out = []
+        tally = "  ".join(
+            f"{s}: {sum(self.by_sev[s].values())}"
+            for s in self.ORDER if s in self.by_sev
+        )
+        out.append(tally)
+        for sev in self.ORDER:
+            if sev not in self.by_sev:
+                continue
+            for tid, n in self.by_sev[sev].most_common():
+                out.append(f"  [{sev}] {tid}" + (f" ×{n} targets" if n > 1 else ""))
+        return out
+
+
+class Netexec(Summary):
+    LINE = re.compile(r"^(?P<proto>\w+)\s+(?P<host>\S+)\s+\d+\s+\S+\s+\[(?P<mark>[-+*])\]\s*(?P<rest>.*)")
+
+    def __init__(self):
+        super().__init__()
+        self.pwned, self.info = [], []
+        self.failures = Counter()
+        self.hosts = set()
+
+    def feed(self, raw):
+        line = clean(raw)
+        m = self.LINE.match(line) if line else None
+        if not m:
+            return super().feed(raw)
+        self.hosts.add(m.group("host"))
+        mark, rest = m.group("mark"), m.group("rest")
+        if mark == "+":
+            self.pwned.append(line)
+        elif mark == "*":
+            self.info.append(line)
+        else:
+            self.failures[rest.split()[-1] if rest.split() else "failure"] += 1
+
+    def render(self):
+        out = list(self.pwned)          # successes first, always
+        out += self.info[:10]
+        for reason, n in self.failures.most_common():
+            out.append(f"  {n}/{len(self.hosts)} hosts: {reason}")
+        return out or ["no status lines"]
+
+
+class Hashcat(Summary):
+    inject = ("--quiet",)
+
+    def follow_up(self, argv):
+        mode = potfile = None
+        for i, a in enumerate(argv):
+            if a == "-m" and i + 1 < len(argv):
+                mode = argv[i + 1]
+            elif a.startswith("-m") and len(a) > 2:
+                mode = a[2:]
+        rest = [a for a in argv[1:] if not a.startswith("-")]
+        if mode and rest:
+            return [argv[0], "--show", "-m", mode, rest[0]]
+        return None
+
+
+PROFILES = {
+    "ffuf": Ffuf,
+    "feroxbuster": Ferox,
+    "nuclei": Nuclei,
+    "netexec": Netexec,
+    "nxc": Netexec,
+    "crackmapexec": Netexec,
+    "hashcat": Hashcat,
+}
+
+
+def main():
+    argv = sys.argv[1:]
+    raw_mode = False
+    if argv and argv[0] == "--rtk-sec-raw":
+        raw_mode, argv = True, argv[1:]
+    if not argv:
+        sys.exit("usage: rtk-sec <tool> [args...]")
+
+    tool = argv[0]
+    if shutil.which(tool) is None:
+        sys.exit(f"rtk-sec: {tool}: not found on PATH")
+
+    profile = PROFILES.get(os.path.basename(tool))
+    collector = profile() if (profile and not raw_mode) else Summary()
+
+    cmd = list(argv)
+    for flag in getattr(collector, "inject", ()):
+        if flag not in cmd:
+            cmd.append(flag)
+
+    base = tee_dir()
+    path = os.path.join(
+        base, f"{time.strftime('%Y%m%d-%H%M%S')}-{os.path.basename(tool)}-{os.getpid()}.log"
+    )
+    prune(base, current=path)
+
+    rc = 0
+    proc = None
+    try:
+        # RTK_DISABLED keeps rtk out of the child's path: a tool is either on the
+        # TOML path or the wrapper path, never filtered twice.
+        env = {**os.environ, "RTK_DISABLED": "1"}
+        with open(path, "w", buffering=1) as tee:
+            tee.write(f"# rtk-sec {VERSION}\n# argv: {' '.join(cmd)}\n"
+                      f"# cwd: {os.getcwd()}\n# started: {time.ctime()}\n\n")
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                env=env, bufsize=1, text=True, errors="replace",
+            )
+
+            def forward(signum, _frame):
+                if proc.poll() is None:
+                    proc.send_signal(signum)
+            for s in (signal.SIGINT, signal.SIGTERM):
+                signal.signal(s, forward)
+
+            for line in proc.stdout:
+                tee.write(line)          # line-buffered: a SIGKILL still leaves a usable file
+                collector.feed(line)
+            rc = proc.wait()
+
+        if isinstance(collector, Hashcat) and not raw_mode:
+            follow = collector.follow_up(cmd)
+            if follow:
+                shown = subprocess.run(follow, capture_output=True, text=True, env=env)
+                for line in shown.stdout.splitlines():
+                    if ":" in line:
+                        collector.tail.append(line)
+    except KeyboardInterrupt:
+        rc = 130
+    except Exception as exc:                      # never let summarising lose the run
+        print(f"rtk-sec: summariser failed: {exc}", file=sys.stderr)
+        rc = rc or 1
+    finally:
+        try:
+            for line in collector.error_block():
+                print(line)
+            for line in collector.render():
+                print(line)
+        except Exception:
+            subprocess.run(["tail", "-n", "40", path])
+        print(f"[full output: {path}]")
+
+    if proc is not None and rc is not None and rc < 0:
+        rc = 128 - rc                             # died on a signal
+    sys.exit(rc or 0)
+
+
+if __name__ == "__main__":
+    main()

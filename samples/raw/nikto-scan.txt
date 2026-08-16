@@ -1,0 +1,38 @@
+- Nikto v2.6.0
+---------------------------------------------------------------------------
++ Target IP:          127.0.0.1
++ Target Hostname:    127.0.0.1
++ Target Port:        8080
++ Platform:           Unknown
++ Start Time:         2026-08-16 18:24:36 (GMT7)
+---------------------------------------------------------------------------
++ Server: SimpleHTTP/0.6 Python/3.13.14
++ ERROR: Failed to check for updates: 403
++ No CGI Directories found (use '-C all' to force check all possible dirs). CGI tests skipped.
++ [013587] /: Suggested security header missing: strict-transport-security. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
++ [013587] /: Suggested security header missing: permissions-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy
++ [013587] /: Suggested security header missing: referrer-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy
++ [013587] /: Suggested security header missing: content-security-policy. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
++ [013587] /: Suggested security header missing: x-content-type-options. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
++ [600720] SimpleHTTP/0.6 appears to be outdated (current is at least 1.2).
++ [000997] /config.php: PHP Config file may contain database IDs and passwords.
++ [001578] /backup/: This might be interesting.
++ [001631] /css/: This might be interesting.
++ [001892] /test.html: This might be interesting.
++ [003000] /icons/: Directory indexing found. See: http://projects.webappsec.org/w/page/13246922/Directory%20Indexing
++ [003011] /images/: Directory indexing found. See: http://projects.webappsec.org/w/page/13246922/Directory%20Indexing
++ [006230] /admin/index.html: Admin login page/section found.
++ [006609] /.git/HEAD: Git HEAD file found. Full repo details may be present.
++ [007342] /: X-Frame-Options header is deprecated and was replaced with the Content-Security-Policy HTTP header with the frame-ancestors directive. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Frame-Options
++ [007352] /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ 8196 requests: 4 errors and 16 items reported on the remote host
++ End Time:           2026-08-16 18:24:43 (GMT7) (7 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+
+
+      *********************************************************************
+      Portions of the server's headers (Python/3.13.14) are not in
+      the Nikto 2.6.0 database or are newer than the known string. Would you like
+      to submit this information (*no server specific data*) to CIRT.net
+      for a Nikto update (or you may email to sullo@cirt.net) (y/n)? 

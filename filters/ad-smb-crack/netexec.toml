@@ -1,0 +1,33 @@
+[filters.netexec]
+description = "Keep netexec/crackmapexec status lines, cap failure spam"
+match_command = "^(netexec|nxc|crackmapexec|cme)\\s+(smb|ssh|ldap|winrm|mssql|rdp|vnc|ftp|nfs|wmi)\\b"
+strip_ansi = true
+filter_stderr = true
+keep_lines_matching = [
+  "\\[\\+\\]",
+  "\\[-\\]",
+  "\\[\\*\\]",
+  "\\(Pwn3d!\\)",
+  "(?i)^error",
+  "(?i)connection refused",
+  "(?i)traceback",
+]
+# A /24 spray emits 254 [-] lines and the DSL cannot count them; the wrapper
+# profile in bin/rtk-sec collapses those into a single tally.
+max_lines = 80
+truncate_lines_at = 200
+on_empty = "netexec: no status lines matched the filter (see full output)"
+
+[[tests.netexec]]
+name = "keeps host info, failure and Pwn3d"
+input = """
+SMB         10.10.10.10     445    DC01             [*] Windows Server 2019 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)
+SMB         10.10.10.10     445    DC01             [-] corp.local\\alice:Summer2024 STATUS_LOGON_FAILURE
+SMB         10.10.10.10     445    DC01             [+] corp.local\\admin:Password1 (Pwn3d!)
+"""
+expected = "SMB         10.10.10.10     445    DC01             [*] Windows Server 2019 Build 17763 x64 (name:DC01) (domain:corp.local) (signing:True) (SMBv1:False)\nSMB         10.10.10.10     445    DC01             [-] corp.local\\alice:Summer2024 STATUS_LOGON_FAILURE\nSMB         10.10.10.10     445    DC01             [+] corp.local\\admin:Password1 (Pwn3d!)"
+
+[[tests.netexec]]
+name = "python traceback is not swallowed"
+input = "Traceback (most recent call last):\n  File \"/usr/bin/netexec\", line 8, in <module>\nConnectionRefusedError: [Errno 111] Connection refused"
+expected = "Traceback (most recent call last):\nConnectionRefusedError: [Errno 111] Connection refused"
