@@ -5,7 +5,7 @@ Security-tool output filters for [rtk](https://github.com/rtk-ai/rtk).
 rtk ships ~63 filters, all of them for dev/infra tooling. Pentest tools are the
 noisiest thing a terminal produces — ASCII banners, `\r` progress repaints,
 hundreds of `Rejected`/`STATUS`/404 lines — and none of them were covered.
-rtk-sec adds filters for 13 of them, plus a wrapper for the five whose output
+rtk-sec adds filters for 15 of them, plus a wrapper for the five whose output
 needs counting rather than line-filtering.
 
 ## Install
@@ -35,10 +35,17 @@ Against real output captured from the loopback lab (`lab/`):
 | gobuster | 1362 | 701 | **48%** |
 | whatweb | 279 | 148 | **46%** |
 | feroxbuster | 2798 | 1543 | **44%** |
+| smbclient | 415 | 378 | **8%** |
+| nmap | 931 | 863 | **7%** |
 
 The lab has nine findings and a 4614-word wordlist. Real targets skew the ratio
 further: the banner is a fixed cost and the progress/noise scales with the scan,
 so a large `ffuf` or `nuclei` run saves considerably more than this table shows.
+nmap and smbclient are the opposite case — both already print a compact,
+line-dense result with almost no machinery to strip, so the honest number is
+single-digit. They're included anyway because they're real tools this
+project's own session history showed were in actual use with zero filter
+coverage; a smaller, honest saving beats no filter.
 
 ## Safety model
 
@@ -50,8 +57,12 @@ Three rules follow from that.
 where findings have a rigid machine-generated shape (gobuster, ffuf,
 feroxbuster, nuclei, netexec, hydra, wafw00f). Where findings are free-form and
 only the *noise* is rigid, the filter strips instead (nikto, sqlmap, sslscan,
-john, impacket, whatweb). john is the clearest case — a cracked line is
-`password123      (alice)`, with no prefix to match on.
+john, impacket, whatweb, nmap, smbclient). john is the clearest case — a
+cracked line is `password123      (alice)`, with no prefix to match on. nmap
+is the same shape for a different reason: NSE vulnerability-script findings
+print as `| scriptname:` / `|_scriptname:`, a prefix no noise line in nmap's
+own output ever produces, so there's nothing a keep-list could usefully
+anchor on without being a no-op.
 
 **Every keep-list carries error patterns.** `(?i)^error`, `connection refused`,
 and per-tool fatals are mandatory, enforced by `tools/check-collisions.sh` in
@@ -112,7 +123,7 @@ Status/Size metadata the summary groups on.
 
 | Level | Tools |
 |---|---|
-| **Validated against real captured output** | gobuster, ffuf, feroxbuster, nikto, sqlmap, whatweb, wafw00f |
+| **Validated against real captured output** | gobuster, ffuf, feroxbuster, nikto, sqlmap, whatweb, wafw00f, nmap, smbclient |
 | **Format stable, inline-tested only** | nuclei, sslscan, hydra, netexec, john, impacket |
 | **Not shipped** | testssl (not installed here, format unverified) |
 
@@ -124,6 +135,13 @@ The sqlmap filter was written against a real run rather than from memory —
 so sqlmap emits a genuine `Parameter:/Type:/Title:/Payload:` block to design
 against. That block, including the full UNION payload, passes through untouched;
 `truncate_lines_at` is 400 so a payload is never cut mid-`CHAR()`.
+
+nmap and smbclient came from the same discipline applied one step earlier:
+rather than guessing which pentest tools this project's users actually run,
+`lab/nmap-targets.py` (loopback TCP listeners with banners) and a loopback
+`impacket-smbserver` share were stood up to capture real `-sV` and
+`recurse; ls` output, plus the real `NT_STATUS_*`/`Note: Host seems down`
+error strings, before either filter was written.
 
 ## Development
 

@@ -19,7 +19,7 @@ RTK="$(command -v rtk || echo "$HOME/.local/bin/rtk")"
 [[ -x "$RTK" ]] || { echo "rtk not found — install it first" >&2; exit 1; }
 
 have="$("$RTK" --version | awk '{print $2}')"
-printf '%s\n0.45.0\n' "$have" | sort -V -C || {
+printf '0.45.0\n%s\n' "$have" | sort -V -C || {
   echo "rtk $have is older than the required 0.45.0" >&2; exit 1; }
 
 command -v python3 >/dev/null || { echo "python3 required" >&2; exit 1; }

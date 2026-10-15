@@ -20,6 +20,8 @@ artifact is better than a tee anyway (structured, machine-readable):
 | sqlmap | writes to `~/.local/share/sqlmap/output/` by default |
 | netexec | `--log out.txt` |
 | hashcat | uses its potfile; `--show` re-reads it |
+| nmap | `-oN out.txt` (or `-oA out` for all three formats) |
+| smbclient | no native log flag; redirect stdout yourself if the share is large |
 
 When a filtered result looks thin or surprising, read that file rather than
 re-running the scan.
@@ -28,6 +30,9 @@ re-running the scan.
 
 `gobuster -q --no-progress` · `sqlmap --batch -v 0 --disable-coloring` ·
 `wpscan --no-banner` · `nuclei -silent` · `nikto -nointeractive`
+
+nmap's own output is already compact — there's no quiet flag to add, and the
+filter only strips `-v`/NSE timing lines, which are low-value either way.
 
 These cut noise at the source; the filters are there for when they are forgotten.
 

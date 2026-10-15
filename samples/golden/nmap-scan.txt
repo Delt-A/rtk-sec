@@ -1,0 +1,14 @@
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000037s latency).
+PORT     STATE  SERVICE        VERSION
+2200/tcp open   ssh            OpenSSH 9.6p1 Debian 3 (protocol 2.0)
+2225/tcp open   smtp           Postfix smtpd
+2253/tcp open   tcpwrapped
+2280/tcp open   lnvpoller?
+2299/tcp closed pc-telecommute
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port2280-TCP:V=7.99%I=7%D=10/15%Time=6AD09E51%P=x86_64-pc-linux-gnu%r(N
+SF:ULL,2A,"HTTP/1\.1\x20200\x20OK\r\nServer:\x20lab-httpd/1\.0\r\n\r\n");
+Service Info: Host:  lab-smtp; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 0.45 seconds

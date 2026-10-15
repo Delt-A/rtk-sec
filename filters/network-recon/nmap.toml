@@ -1,0 +1,61 @@
+[filters.nmap]
+description = "Keep nmap's port table, service info, and NSE script findings; drop scan-progress machinery"
+match_command = "^nmap\\b"
+strip_ansi = true
+filter_stderr = true
+strip_lines_matching = [
+  "^\\s*$",
+  "^Starting Nmap ",
+  "^NSE: Loaded \\d+ scripts",
+  "^Initiating .* at \\d",
+  "^Scanning .*\\[\\d+ ports?\\]",
+  "^Discovered open port ",
+  "^Completed .* at \\d",
+  "^Read data files from:",
+  "^\\s*Raw packets sent:",
+]
+# NSE script output lines ("| scriptname:" / "|_scriptname:") are findings,
+# never machinery — the strip list above is deliberately pattern-anchored to
+# known noise prefixes so a "|"-prefixed line can never match by accident.
+max_lines = 200
+on_empty = "nmap: nothing survived the filter (see full output)"
+
+[[tests.nmap]]
+name = "verbose scan: keeps port table + service fingerprint, drops SYN/NSE timing noise"
+input = """
+Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-15 16:35 +0700
+NSE: Loaded 48 scripts for scanning.
+Initiating SYN Stealth Scan at 16:35
+Scanning localhost (127.0.0.1) [5 ports]
+Discovered open port 2200/tcp on 127.0.0.1
+Completed SYN Stealth Scan at 16:35, 0.02s elapsed (5 total ports)
+Initiating Service scan at 16:35
+Completed Service scan at 16:35, 0.07s elapsed (4 services on 1 host)
+Nmap scan report for localhost (127.0.0.1)
+Host is up (0.000042s latency).
+
+PORT     STATE  SERVICE        VERSION
+2200/tcp open   ssh            OpenSSH 9.6p1 Debian 3 (protocol 2.0)
+2299/tcp closed pc-telecommute
+Service Info: Host:  lab-smtp; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Read data files from: /usr/share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 0.38 seconds
+           Raw packets sent: 5 (220B) | Rcvd: 13 (556B)
+"""
+expected = "Nmap scan report for localhost (127.0.0.1)\nHost is up (0.000042s latency).\nPORT     STATE  SERVICE        VERSION\n2200/tcp open   ssh            OpenSSH 9.6p1 Debian 3 (protocol 2.0)\n2299/tcp closed pc-telecommute\nService Info: Host:  lab-smtp; OS: Linux; CPE: cpe:/o:linux:linux_kernel\nNmap done: 1 IP address (1 host up) scanned in 0.38 seconds"
+
+[[tests.nmap]]
+name = "NSE vuln script finding lines are never touched by the strip list"
+input = "PORT   STATE SERVICE\n443/tcp open  https\n| http-vuln-cve2021-41773:\n|   VULNERABLE:\n|_  Apache 2.4.49 Path Traversal"
+expected = "PORT   STATE SERVICE\n443/tcp open  https\n| http-vuln-cve2021-41773:\n|   VULNERABLE:\n|_  Apache 2.4.49 Path Traversal"
+
+[[tests.nmap]]
+name = "host-down note is not swallowed"
+input = "Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-15 16:35 +0700\nNote: Host seems down. If it is really up, but blocking our ping probes, try -Pn\nNmap done: 1 IP address (0 hosts up) scanned in 3.12 seconds"
+expected = "Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn\nNmap done: 1 IP address (0 hosts up) scanned in 3.12 seconds"
+
+[[tests.nmap]]
+name = "DNS resolution failure is not swallowed"
+input = "Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-15 16:35 +0700\nFailed to resolve \"nope.invalid\".\nWARNING: No targets were specified, so 0 hosts scanned.\nNmap done: 0 IP addresses (0 hosts up) scanned in 0.53 seconds"
+expected = "Failed to resolve \"nope.invalid\".\nWARNING: No targets were specified, so 0 hosts scanned.\nNmap done: 0 IP addresses (0 hosts up) scanned in 0.53 seconds"

@@ -27,6 +27,8 @@ declare -A CMD=(
   [whatweb]="whatweb http://127.0.0.1:8080"
   [wafw00f]="wafw00f http://127.0.0.1:8080"
   [sqlmap-scan]="sqlmap -u http://127.0.0.1:8081/?id=1 --batch"
+  [nmap-scan]="nmap -sV -p 2200,2280,2225,2253,2299 127.0.0.1"
+  [smbclient-recurse]="smbclient //127.0.0.1/LAB -N -c recurse; ls"
 )
 
 fail=0

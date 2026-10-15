@@ -1,0 +1,11 @@
+WARNING: no network interfaces found
+  Public                              D       60  Thu Oct 15 16:36:13 2026
+  Secret                              D       60  Thu Oct 15 16:36:13 2026
+
+\Public
+  readme.txt                         AN       20  Thu Oct 15 16:36:13 2026
+
+\Secret
+  passwords.txt                      AN        8  Thu Oct 15 16:36:13 2026
+
+		148529400 blocks of size 1024. 14851044 blocks available
