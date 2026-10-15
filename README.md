@@ -8,7 +8,38 @@ hundreds of `Rejected`/`STATUS`/404 lines — and none of them were covered.
 rtk-sec adds filters for 16 of them, plus a wrapper for the five whose output
 needs counting rather than line-filtering.
 
-## Install
+## Prerequisite: rtk itself
+
+`./install.sh` only adds filters to an rtk that's already there — it checks
+for the binary and refuses to run without it (`rtk not found — install it
+first`). If `rtk --version` doesn't already work:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | sh
+```
+
+Apache-2.0 edition (no BUSL-licensed compression engine) instead:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/master/install.sh | RTK_EDITION=oss sh
+```
+
+Windows: `winget install rtk-ai.rtk`.
+
+**Verify it's the right `rtk`** — a same-named, unrelated Rust tool
+(`reachingforthejack/rtk`, "Rust Type Kit") exists on crates.io and
+`cargo install rtk` can grab it by mistake:
+
+```bash
+rtk gain    # must print a token-savings dashboard, not "command not found"
+```
+
+If `rtk --version` works but `rtk gain` doesn't, that's the wrong rtk —
+`cargo uninstall rtk` and reinstall from the command above. rtk-sec's own
+`install.sh` additionally requires **rtk ≥ 0.45.0**; it checks this itself
+and exits with a clear error if the version is too old.
+
+## Install rtk-sec
 
 ```bash
 ./install.sh
@@ -21,6 +52,10 @@ nothing. `./uninstall.sh` reverses everything.
 
 Nothing else to configure: rtk's PreToolUse hook picks up user-defined filters
 automatically, so `gobuster …` is rewritten to `rtk gobuster …` transparently.
+
+Note: rtk-sec only ships *filters* — it doesn't install the pentest tools
+themselves. `gobuster`, `nmap`, `sqlmap`, `tshark`, etc. still need to be on
+the target machine for their own filter to do anything.
 
 ## Measured savings
 
