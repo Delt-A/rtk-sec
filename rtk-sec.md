@@ -22,6 +22,7 @@ artifact is better than a tee anyway (structured, machine-readable):
 | hashcat | uses its potfile; `--show` re-reads it |
 | nmap | `-oN out.txt` (or `-oA out` for all three formats) |
 | smbclient | no native log flag; redirect stdout yourself if the share is large |
+| tshark | `-w out.pcapng` to a file, then `-r out.pcapng` to re-analyze |
 
 When a filtered result looks thin or surprising, read that file rather than
 re-running the scan.
@@ -33,6 +34,11 @@ re-running the scan.
 
 nmap's own output is already compact — there's no quiet flag to add, and the
 filter only strips `-v`/NSE timing lines, which are low-value either way.
+
+tshark in `-r` (reading a capture file) mode has no filter applied at all —
+there's no boilerplate to strip in that mode, only packets, fields, and
+errors, all of which are real data. Only `-i` (live capture) gets its
+startup banner dropped; the packet-count line is always kept.
 
 These cut noise at the source; the filters are there for when they are forgotten.
 

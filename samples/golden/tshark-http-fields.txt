@@ -1,0 +1,6 @@
+4	0	GET	/	
+8	0		/	200
+14	1	GET	/admin	
+18	1		/admin	200
+24	2	GET	/nope	
+28	2		/nope	200

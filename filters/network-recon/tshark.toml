@@ -1,0 +1,46 @@
+[filters.tshark]
+description = "Drop the live-capture startup banner; every packet line and the packet count are data, not noise"
+match_command = "^tshark\\b"
+strip_ansi = true
+filter_stderr = true
+# `-r <file>` (reading a capture — the common post-hoc analysis mode) prints
+# no boilerplate at all; every line is a packet, a field, or an error, so
+# this filter is a deliberate no-op there. The only genuine boilerplate is
+# the live-capture (`-i`) startup banner. "N packets captured" is kept on
+# purpose: in `-w file.pcap` mode it is the *only* stdout line, and 0 vs N is
+# itself the finding (did the filter/interface/permissions actually work).
+strip_lines_matching = [
+  "^Capturing on '.*'$",
+]
+max_lines = 500
+on_empty = "tshark: nothing survived the filter (see full output)"
+
+[[tests.tshark]]
+name = "live capture to file: banner dropped, packet count kept"
+input = "Capturing on 'Loopback: lo'\n2 packets captured"
+expected = "2 packets captured"
+
+[[tests.tshark]]
+name = "live capture to stdout: banner dropped, every packet summary line kept"
+input = """
+Capturing on 'Loopback: lo'
+3 packets captured
+    1 0.000000000    127.0.0.1 → 127.0.0.1    TCP 74 39706 → 8080 [SYN] Seq=0 Win=65495 Len=0
+    2 0.000016331    127.0.0.1 → 127.0.0.1    TCP 74 8080 → 39706 [SYN, ACK] Seq=0 Ack=1 Win=65483
+"""
+expected = "3 packets captured\n    1 0.000000000    127.0.0.1 → 127.0.0.1    TCP 74 39706 → 8080 [SYN] Seq=0 Win=65495 Len=0\n    2 0.000016331    127.0.0.1 → 127.0.0.1    TCP 74 8080 → 39706 [SYN, ACK] Seq=0 Ack=1 Win=65483"
+
+[[tests.tshark]]
+name = "-r mode (reading a file): no banner exists, output passes through untouched"
+input = "    1 0.000000000    127.0.0.1 → 127.0.0.1    HTTP 144 GET / HTTP/1.1 \n    2 0.010793832    127.0.0.1 → 127.0.0.1    TCP 1623 HTTP/1.1 200 OK "
+expected = "    1 0.000000000    127.0.0.1 → 127.0.0.1    HTTP 144 GET / HTTP/1.1 \n    2 0.010793832    127.0.0.1 → 127.0.0.1    TCP 1623 HTTP/1.1 200 OK "
+
+[[tests.tshark]]
+name = "bad interface error is not swallowed"
+input = "Capturing on 'nonexistent999'\ntshark: There is no device named \"nonexistent999\".\n(No such device exists)\n0 packets captured"
+expected = "tshark: There is no device named \"nonexistent999\".\n(No such device exists)\n0 packets captured"
+
+[[tests.tshark]]
+name = "invalid capture filter error is not swallowed"
+input = "Capturing on 'Loopback: lo'\ntshark: Invalid capture filter \"garbage(((\" for interface 'Loopback'.\n\nThat string isn't a valid capture filter (can't parse filter expression: syntax error).\n0 packets captured"
+expected = "tshark: Invalid capture filter \"garbage(((\" for interface 'Loopback'.\n\nThat string isn't a valid capture filter (can't parse filter expression: syntax error).\n0 packets captured"

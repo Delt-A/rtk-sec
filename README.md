@@ -5,7 +5,7 @@ Security-tool output filters for [rtk](https://github.com/rtk-ai/rtk).
 rtk ships ~63 filters, all of them for dev/infra tooling. Pentest tools are the
 noisiest thing a terminal produces — ASCII banners, `\r` progress repaints,
 hundreds of `Rejected`/`STATUS`/404 lines — and none of them were covered.
-rtk-sec adds filters for 15 of them, plus a wrapper for the five whose output
+rtk-sec adds filters for 16 of them, plus a wrapper for the five whose output
 needs counting rather than line-filtering.
 
 ## Install
@@ -37,6 +37,8 @@ Against real output captured from the loopback lab (`lab/`):
 | feroxbuster | 2798 | 1543 | **44%** |
 | smbclient | 415 | 378 | **8%** |
 | nmap | 931 | 863 | **7%** |
+| tshark (live capture) | 502 | 474 | **5%** |
+| tshark (`-r`, reading a file) | 3756 / 88 | 3756 / 88 | **0%** |
 
 The lab has nine findings and a 4614-word wordlist. Real targets skew the ratio
 further: the banner is a fixed cost and the progress/noise scales with the scan,
@@ -46,6 +48,13 @@ line-dense result with almost no machinery to strip, so the honest number is
 single-digit. They're included anyway because they're real tools this
 project's own session history showed were in actual use with zero filter
 coverage; a smaller, honest saving beats no filter.
+
+tshark is the extreme version of that same honesty: `-r <file>` — the mode
+this project's own history actually used (`tshark -r capture.pcapng -Y http
+-T fields …`) — has **no boilerplate at all**. Every line is a packet, a
+field, or an error. The filter is a correct, verified no-op there, and the
+table says so rather than reporting the unrelated 5% from live-capture mode
+as if it applied generally.
 
 ## Safety model
 
@@ -63,6 +72,14 @@ is the same shape for a different reason: NSE vulnerability-script findings
 print as `| scriptname:` / `|_scriptname:`, a prefix no noise line in nmap's
 own output ever produces, so there's nothing a keep-list could usefully
 anchor on without being a no-op.
+
+tshark pushes this to its logical end: in `-r` mode there is no noise at
+all, so strip-mode with exactly one pattern (the live-capture startup
+banner) is correct, and it's a deliberate no-op for the file-reading mode
+that's actually the common case. A packet-count line (`N packets captured`)
+is kept on purpose rather than stripped as "boilerplate" — in `-w file.pcap`
+mode it's the only stdout line at all, and 0 vs N packets is itself the
+finding (did the capture filter, interface, or permissions actually work).
 
 **Every keep-list carries error patterns.** `(?i)^error`, `connection refused`,
 and per-tool fatals are mandatory, enforced by `tools/check-collisions.sh` in
@@ -123,7 +140,7 @@ Status/Size metadata the summary groups on.
 
 | Level | Tools |
 |---|---|
-| **Validated against real captured output** | gobuster, ffuf, feroxbuster, nikto, sqlmap, whatweb, wafw00f, nmap, smbclient |
+| **Validated against real captured output** | gobuster, ffuf, feroxbuster, nikto, sqlmap, whatweb, wafw00f, nmap, smbclient, tshark |
 | **Format stable, inline-tested only** | nuclei, sslscan, hydra, netexec, john, impacket |
 | **Not shipped** | testssl (not installed here, format unverified) |
 

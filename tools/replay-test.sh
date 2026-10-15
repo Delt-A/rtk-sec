@@ -29,6 +29,9 @@ declare -A CMD=(
   [sqlmap-scan]="sqlmap -u http://127.0.0.1:8081/?id=1 --batch"
   [nmap-scan]="nmap -sV -p 2200,2280,2225,2253,2299 127.0.0.1"
   [smbclient-recurse]="smbclient //127.0.0.1/LAB -N -c recurse; ls"
+  [tshark-default]="tshark -r cap.pcapng"
+  [tshark-live]="tshark -i lo -c 3 -f tcp port 8080"
+  [tshark-http-fields]="tshark -r cap.pcapng -Y http -T fields -e frame.number -e tcp.stream"
 )
 
 fail=0
