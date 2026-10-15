@@ -131,15 +131,48 @@ v1 and the CI lint rejects it.
 
 ### Preserving full output
 
-rtk's own tee is **not** a safety net here: measured on 0.45.0, it fires only
-when the wrapped command exits non-zero, regardless of `[tee] mode = "always"`.
-A successful scan is never teed. So:
+Two separate rtk tee mechanisms exist, confirmed by direct testing (both
+0.45.0 and 1.0.1), and they behave differently:
+
+- **The general `[tee] mode = "always"` config is not a safety net here.**
+  Verified: a small, well-under-`max_lines`, exit-0 scan produces no tee file
+  at all despite `mode = "always"`. It only fires when the wrapped command
+  exits non-zero, so a *successful* scan with findings is never preserved by
+  this mechanism alone.
+- **`max_lines` truncation has its own, always-on tee, independent of exit
+  code.** When a TOML filter's `max_lines` actually drops lines, rtk appends
+  `... (N lines truncated)` *and* `[see remaining: tail -n +101 <tee file>]`
+  — verified byte-for-byte identical to the untruncated original on both rtk
+  versions. This means every one of rtk-sec's 16 TOML filters already has a
+  built-in recovery path for the one case where line-capping could plausibly
+  cut a real finding.
+
+Neither mechanism preserves output for the five `bin/rtk-sec`-wrapped tools,
+since their *summary* is produced by Python, not by a TOML `max_lines` cap.
+So:
 
 - `~/.claude/rtk-sec.md` (installed automatically) instructs Claude to pass each
   tool's native output flag — `gobuster -o`, `ffuf -o … -of json`, `nuclei -o`.
   These artifacts are better than a tee: structured and machine-readable.
-- `bin/rtk-sec` **always** tees the raw stream and prints `[full output: <path>]`,
-  for the five tools it wraps.
+- `bin/rtk-sec` **always** tees the raw stream itself and prints
+  `[full output: <path>]`, for the five tools it wraps — this is why that
+  wrapper exists independently of either rtk mechanism above.
+
+### Truncation inside the wrapper is always labelled
+
+Every cap inside `bin/rtk-sec`'s Python summarisers carries a `(+N more …)` or
+`(N earlier lines not shown)` marker when it actually truncates something —
+same convention as `Grouped`'s per-status `(+N more)` (the line a user might
+notice in the `rtk-sec ffuf` terminal summary). This was tightened after an
+audit found three summarisers that capped silently with no marker:
+`error_block()` (errors beyond 10), `Netexec`'s `[*]` info lines (beyond 10),
+and the base `Summary.render()` tail (beyond the last 40 lines — used by
+`hashcat`'s live-progress display). None of these ever dropped data from the
+`[full output: <path>]` tee file — the tee always wrote every raw line — the
+gap was only in the *terminal summary* under-reporting without saying so.
+Two things never get capped, by design: `Netexec`'s `[+]` "Pwn3d!" successes,
+and hashcat's `--show` follow-up (every cracked credential is printed, since
+that is the one output a crack run exists to produce).
 
 ## The rtk-sec wrapper
 

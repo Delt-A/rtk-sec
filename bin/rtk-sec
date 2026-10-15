@@ -61,8 +61,12 @@ class Summary:
 
     inject = ()
 
+    tail_cap = 40
+    error_cap = 10
+
     def __init__(self):
         self.tail = []
+        self.tail_dropped = 0
         self.errors = []
 
     def feed(self, raw):
@@ -73,16 +77,28 @@ class Summary:
             if line not in self.errors:
                 self.errors.append(line)
         self.tail.append(line)
-        if len(self.tail) > 40:
+        if len(self.tail) > self.tail_cap:
             self.tail.pop(0)
+            self.tail_dropped += 1
 
     def render(self):
-        return self.tail
+        out = list(self.tail)
+        if self.tail_dropped:
+            out.insert(0, f"... ({self.tail_dropped} earlier line"
+                           f"{'s' if self.tail_dropped != 1 else ''} not shown — see full output)")
+        return out
 
     def error_block(self):
         # Errors are always surfaced verbatim: a summary that hides a failed scan
-        # is worse than no summary at all.
-        return self.errors[:10]
+        # is worse than no summary at all. Truncation past error_cap is labelled,
+        # same convention as Grouped's "(+N more)" — a silently dropped error
+        # would be worse than no summary at all.
+        shown = self.errors[: self.error_cap]
+        extra = len(self.errors) - len(shown)
+        if extra > 0:
+            shown = shown + [f"  (+{extra} more error"
+                              f"{'s' if extra != 1 else ''} — see full output)"]
+        return shown
 
 
 class Grouped(Summary):
@@ -187,9 +203,15 @@ class Netexec(Summary):
         else:
             self.failures[rest.split()[-1] if rest.split() else "failure"] += 1
 
+    info_cap = 10
+
     def render(self):
-        out = list(self.pwned)          # successes first, always
-        out += self.info[:10]
+        out = list(self.pwned)          # successes first, always, never capped
+        shown = self.info[: self.info_cap]
+        out += shown
+        extra = len(self.info) - len(shown)
+        if extra > 0:
+            out.append(f"  (+{extra} more info line{'s' if extra != 1 else ''} — see full output)")
         for reason, n in self.failures.most_common():
             out.append(f"  {n}/{len(self.hosts)} hosts: {reason}")
         return out or ["no status lines"]
