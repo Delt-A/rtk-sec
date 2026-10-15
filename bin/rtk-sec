@@ -102,10 +102,15 @@ class Summary:
 
 
 class Grouped(Summary):
-    """Group hits by HTTP status, list a few URLs per group."""
+    """Group hits by HTTP status, list every URL per group — never capped.
+
+    This used to cap each group at 8 labels with a "(+N more)" marker. Removed
+    deliberately: a count the agent can't act on without a second read of the
+    tee file defeats the point of a summary. The tally line stays for a quick
+    skim; the per-status lists are now the full, authoritative count.
+    """
 
     row = None
-    per_group = 8
 
     def __init__(self):
         super().__init__()
@@ -129,9 +134,7 @@ class Grouped(Summary):
         )
         out = [f"{self.count} hits — {tally}"]
         for status, labels in sorted(self.groups.items()):
-            shown = labels[: self.per_group]
-            out.append(f"  [{status}] " + ", ".join(shown)
-                       + (f"  (+{len(labels) - len(shown)} more)" if len(labels) > len(shown) else ""))
+            out.append(f"  [{status}] " + ", ".join(labels))
         return out
 
 

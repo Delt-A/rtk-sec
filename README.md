@@ -158,18 +158,26 @@ So:
   `[full output: <path>]`, for the five tools it wraps — this is why that
   wrapper exists independently of either rtk mechanism above.
 
-### Truncation inside the wrapper is always labelled
+### Truncation inside the wrapper
 
-Every cap inside `bin/rtk-sec`'s Python summarisers carries a `(+N more …)` or
-`(N earlier lines not shown)` marker when it actually truncates something —
-same convention as `Grouped`'s per-status `(+N more)` (the line a user might
-notice in the `rtk-sec ffuf` terminal summary). This was tightened after an
-audit found three summarisers that capped silently with no marker:
+`Grouped` (`ffuf`, `feroxbuster`) used to cap each status group at 8 labels
+with a `(+N more)` marker. **Removed** — a count the agent can't act on
+without a second read of the tee file defeats the point of a summary, and a
+user asking "does the AI actually see all 10, or 8 + a number?" made clear
+that silent capping is a real cost even when labelled. The per-status lists
+in `rtk-sec ffuf`/`rtk-sec feroxbuster` output are now the full, authoritative
+count — no cap, no marker needed because there's nothing left to mark.
+
+Three other summarisers still cap, for a different reason: they're a *log
+tail* (hashcat's live-progress display, error dedup, netexec's informational
+host lines), not a findings list — unbounded would mean printing noise, not
+missed results. Each of these is now labelled when it actually truncates,
+after an audit found all three capping silently with no marker:
 `error_block()` (errors beyond 10), `Netexec`'s `[*]` info lines (beyond 10),
-and the base `Summary.render()` tail (beyond the last 40 lines — used by
-`hashcat`'s live-progress display). None of these ever dropped data from the
-`[full output: <path>]` tee file — the tee always wrote every raw line — the
-gap was only in the *terminal summary* under-reporting without saying so.
+and the base `Summary.render()` tail (beyond the last 40 lines). None of these
+ever dropped data from the `[full output: <path>]` tee file — the tee always
+wrote every raw line — the gap was only in the *terminal summary*
+under-reporting without saying so.
 Two things never get capped, by design: `Netexec`'s `[+]` "Pwn3d!" successes,
 and hashcat's `--show` follow-up (every cracked credential is printed, since
 that is the one output a crack run exists to produce).

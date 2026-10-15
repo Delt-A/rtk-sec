@@ -68,12 +68,16 @@ Available for `ffuf`, `feroxbuster`, `nuclei`, `netexec`/`nxc`/`crackmapexec`,
   concluding a target is clean.
 - Errors are never filtered out. If a scan shows no findings and no error,
   it genuinely returned nothing.
-- **A literal `(+N more …)` or `(N earlier lines not shown …)` in `rtk-sec`
-  output is not a judgment call.** It means exactly N items exist that you
-  have not seen — not "probably nothing important," not "the count implies
-  it." Before summarizing or concluding anything about the finding count,
-  read the rest from `[full output: <path>]` (e.g. `tail -n +11 <path>` for
-  a cap at 10, or just `grep` the pattern you care about in the file). Do
-  not report "N hits" to the user while only having actually read the
-  capped subset — the header count and the visible list are not the same
-  guarantee.
+- `rtk-sec ffuf`/`rtk-sec feroxbuster`'s per-status hit lists are **never
+  capped** — every hit is in the list you see, not just a sample of it. No
+  `(+N more)` to watch for there any more.
+- **A literal `(+N more …)` or `(N earlier lines not shown …)` elsewhere in
+  `rtk-sec` output is not a judgment call.** It still appears on three
+  log-tail summarisers (error dedup, netexec's `[*]` info lines, hashcat's
+  live-progress tail) where unbounded would mean printing noise, not missed
+  findings — but when it does appear, it means exactly N items exist that
+  you have not seen. Before summarizing or concluding anything about that
+  count, read the rest from `[full output: <path>]` (e.g. `tail -n +11
+  <path>` for a cap at 10, or `grep` the pattern you care about in the
+  file). Do not report a count to the user while only having actually read
+  the capped subset.
